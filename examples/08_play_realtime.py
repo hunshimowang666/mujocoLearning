@@ -17,8 +17,13 @@
 import argparse
 import os
 import numpy as np
+import warnings
 
 import gymnasium as gym
+
+# 将 GLFW 相关 warning 升级为 exception，
+# 这样按 ESC 关闭窗口后 env.render() 会抛异常，被下方 try/except 捕获退出
+warnings.filterwarnings("error", message=".*GLFW.*")
 from stable_baselines3 import PPO, SAC, TD3
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
@@ -71,6 +76,13 @@ def play(model_name):
 
     try:
         while True:
+            # Try to render - this will fail when window is closed
+            try:
+                env.render()
+            except Exception as e:
+                print(f"\nWindow closed, stopping...")
+                break
+
             action, _ = model.predict(obs_v, deterministic=True)
 
             # Step both envs in sync
