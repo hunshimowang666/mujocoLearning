@@ -69,7 +69,7 @@ def train(algo_name="sac"):
             train_freq=1,
             gradient_steps=1,
             ent_coef="auto",
-            device="cpu",
+            device="auto",
             verbose=1,
         )
     elif algo_name == "td3":
@@ -80,7 +80,7 @@ def train(algo_name="sac"):
             learning_starts=10_000,
             batch_size=256,
             gamma=0.99,
-            device="cpu",
+            device="auto",
             verbose=1,
         )
     else:  # ppo
@@ -90,7 +90,7 @@ def train(algo_name="sac"):
             n_epochs=10, gamma=0.99,
             gae_lambda=0.95, clip_range=0.2,
             learning_rate=3e-4,
-            device="cpu",
+            device="auto",
             verbose=1,
         )
 

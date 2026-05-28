@@ -1,0 +1,29 @@
+<mujoco model="simple_box">
+    <!-- 物理引擎选项：重力、时间步长 -->
+    <option gravity="0 0 -10" timestep="0.002"/>
+
+    <!-- ====== 网格资源 ====== -->
+    <asset>
+        <!-- TODO: 把导出的 STL/OBJ 文件放到 3dModels/ 目录，替换 file 属性 -->
+        <mesh name="my_part" file="plate3.STL" scale="0.001 0.001 0.001"/>
+    </asset>
+
+    <worldbody>
+        <!-- 环境光源 -->
+        <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
+
+        <!-- 地面网格 -->
+        <geom type="plane" size="5 5 0.1" rgba=".9 .9 .9 1"/>
+
+        <!-- 自由关节实体（无约束，受重力下落） -->
+        <body name="box" pos="0 0 1">
+            <freejoint/>
+
+            <!-- 显示用网格（高精度） -->
+            <geom type="mesh" mesh="my_part" rgba="1 0 0 1" mass="1"/>
+
+            <!-- 碰撞用简化形状（高效，不显示）：解除注释可替换 mesh 碰撞 -->
+            <!-- <geom type="box" size="0.1 0.1 0.1" mass="1" group="2" contype="1" conaffinity="1"/> -->
+        </body>
+    </worldbody>
+</mujoco>
