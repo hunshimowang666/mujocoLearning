@@ -27,7 +27,7 @@ from stable_baselines3.common.callbacks import (
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "models", "humanoid")
 LOG_DIR   = os.path.join(os.path.dirname(__file__), "logs",   "humanoid")
 ENV_ID    = "Humanoid-v5"
-TOTAL_TIMESTEPS = 10_000_000
+TOTAL_TIMESTEPS = 50_000_000
 
 
 class GracefulExitCallback(BaseCallback):

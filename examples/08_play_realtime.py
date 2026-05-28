@@ -33,6 +33,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_CONFIGS = {
     "humanoid": ("models/humanoid", "Humanoid-v5", PPO),
     "ant":      ("models/ant",      "Ant-v5",      SAC),
+    "ant_dog":  ("models/ant_dog",  "Ant-v5",      SAC),
     "cheetah":  ("models/cheetah",  "HalfCheetah-v5", TD3),
 }
 
