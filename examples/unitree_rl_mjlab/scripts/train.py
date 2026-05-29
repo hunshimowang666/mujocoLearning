@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -29,6 +30,10 @@ class TrainConfig:
   video_length: int = 200
   video_interval: int = 2000
   enable_nan_guard: bool = False
+  clear_old_logs: bool = False
+  constant_lin_vel_x: float | None = None
+  constant_lin_vel_y: float = 0.0
+  constant_ang_vel_z: float = 0.0
   torchrunx_log_dir: str | None = None
   gpu_ids: list[int] | Literal["all"] | None = field(default_factory=lambda: [0])
 
@@ -142,12 +147,42 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   env.close()
 
 
+def configure_constant_twist_command(cfg: TrainConfig) -> None:
+  if cfg.constant_lin_vel_x is None:
+    return
+
+  twist_cmd = cfg.env.commands.get("twist")
+  if twist_cmd is None or not hasattr(twist_cmd, "ranges"):
+    raise ValueError("--constant-lin-vel-x requires a velocity task with a twist command.")
+
+  twist_cmd.ranges.lin_vel_x = (cfg.constant_lin_vel_x, cfg.constant_lin_vel_x)
+  twist_cmd.ranges.lin_vel_y = (cfg.constant_lin_vel_y, cfg.constant_lin_vel_y)
+  twist_cmd.ranges.ang_vel_z = (cfg.constant_ang_vel_z, cfg.constant_ang_vel_z)
+  twist_cmd.heading_command = False
+  twist_cmd.ranges.heading = None
+  twist_cmd.rel_standing_envs = 0.0
+  print(
+    "[INFO] Using constant twist command: "
+    f"lin_vel_x={cfg.constant_lin_vel_x}, "
+    f"lin_vel_y={cfg.constant_lin_vel_y}, "
+    f"ang_vel_z={cfg.constant_ang_vel_z}"
+  )
+
+
 def launch_training(task_id: str, args: TrainConfig | None = None):
   args = args or TrainConfig.from_task(task_id)
+  configure_constant_twist_command(args)
 
   # Create log directory once before launching workers.
   log_root_path = Path("logs") / "rsl_rl" / args.agent.experiment_name
   log_root_path.resolve()
+  if args.clear_old_logs:
+    if args.agent.resume:
+      raise ValueError("--clear-old-logs cannot be used together with --agent.resume=True.")
+    if log_root_path.exists():
+      print(f"[INFO] Removing old training logs: {log_root_path}")
+      shutil.rmtree(log_root_path)
+
   log_dir_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
   if args.agent.run_name:
     log_dir_name += f"_{args.agent.run_name}"

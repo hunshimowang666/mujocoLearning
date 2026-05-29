@@ -26,6 +26,10 @@ class PlayConfig:
   motion_file: str | None = None
   num_envs: int | None = None
   device: str | None = None
+  hide_motion_reference: bool = False
+  constant_lin_vel_x: float | None = None
+  constant_lin_vel_y: float = 0.0
+  constant_ang_vel_z: float = 0.0
   video: bool = False
   video_length: int = 200
   video_height: int | None = None
@@ -37,6 +41,46 @@ class PlayConfig:
 
   # Internal flag used by demo script.
   _demo_mode: tyro.conf.Suppress[bool] = False
+
+
+def apply_constant_twist_command(env: ManagerBasedRlEnv, cfg: PlayConfig, device: str):
+  if cfg.constant_lin_vel_x is None:
+    return
+
+  term = env.command_manager.get_term("twist")
+  if not hasattr(term, "vel_command_b"):
+    raise ValueError("--constant-lin-vel-x requires a velocity task with a twist command.")
+
+  command = torch.tensor(
+    [cfg.constant_lin_vel_x, cfg.constant_lin_vel_y, cfg.constant_ang_vel_z],
+    device=device,
+  )
+
+  def set_command(env_ids=None):
+    if env_ids is None:
+      term.vel_command_b[:, :] = command
+    else:
+      term.vel_command_b[env_ids, :] = command
+    if hasattr(term, "is_standing_env"):
+      term.is_standing_env[:] = False
+    if hasattr(term, "is_heading_env"):
+      term.is_heading_env[:] = False
+
+  def resample_command(env_ids):
+    set_command(env_ids)
+
+  def update_command():
+    set_command()
+
+  term._resample_command = resample_command
+  term._update_command = update_command
+  set_command()
+  print(
+    "[INFO] Using constant twist command: "
+    f"lin_vel_x={cfg.constant_lin_vel_x}, "
+    f"lin_vel_y={cfg.constant_lin_vel_y}, "
+    f"ang_vel_z={cfg.constant_ang_vel_z}"
+  )
 
 
 def run_play(task_id: str, cfg: PlayConfig):
@@ -69,6 +113,8 @@ def run_play(task_id: str, cfg: PlayConfig):
   if is_tracking_task:
     motion_cmd = env_cfg.commands["motion"]
     assert isinstance(motion_cmd, MotionCommandCfg)
+    if cfg.hide_motion_reference:
+      motion_cmd.debug_vis = False
 
     # Check for local motion file first (works for both dummy and trained modes).
     if cfg.motion_file is not None and Path(cfg.motion_file).exists():
@@ -120,6 +166,7 @@ def run_play(task_id: str, cfg: PlayConfig):
       "[WARN] Video recording with dummy agents is disabled (no checkpoint/log_dir)."
     )
   env = ManagerBasedRlEnv(cfg=env_cfg, device=device, render_mode=render_mode)
+  apply_constant_twist_command(env, cfg, device)
 
   if TRAINED_MODE and cfg.video:
     print("[INFO] Recording videos during play")
