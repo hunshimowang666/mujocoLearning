@@ -21,6 +21,7 @@ BUTTON_MIDDLE = False
 BUTTON_RIGHT = False
 LAST_X = 0.0
 LAST_Y = 0.0
+SHOW_COORDINATE_FRAMES = True
 
 
 class PIDController:
@@ -107,7 +108,7 @@ def main():
     print(f"控制频率  : {control_rate} Hz  (每 {steps_per_ctrl} 个物理步更新一次)")
     print(f"PID 参数  : Kp={pid.kp}, Ki={pid.ki}, Kd={pid.kd}")
     print("=" * 60)
-    print("  [A] 向下冲击  [Z] 向上冲击  [R] 重置  [Q/Esc] 退出")
+    print("  [A] 向下冲击  [Z] 向上冲击  [R] 重置  [C] 坐标显示  [Q/Esc] 退出")
     print("  鼠标拖拽/滚轮控制主视角，右下角显示 box_camera 画面")
     print("=" * 60)
 
@@ -127,6 +128,53 @@ def main():
     opt = mujoco.MjvOption()
     scene = mujoco.MjvScene(model, maxgeom=10000)
     context = mujoco.MjrContext(model, mujoco.mjtFontScale.mjFONTSCALE_150)
+    show_coordinate_frames = SHOW_COORDINATE_FRAMES
+
+    def apply_visual_options():
+        # 自己手动画 STL/body 坐标轴；MuJoCo 内置 frame 可能显示编译后的辅助坐标。
+        opt.frame = mujoco.mjtFrame.mjFRAME_NONE
+        opt.flags[mujoco.mjtVisFlag.mjVIS_COM] = int(show_coordinate_frames)
+        opt.flags[mujoco.mjtVisFlag.mjVIS_INERTIA] = int(show_coordinate_frames)
+
+    def add_axes_to_scene(origin, rotation, length):
+        if not show_coordinate_frames or scene.ngeom + 3 > scene.maxgeom:
+            return
+
+        origin = np.asarray(origin, dtype=np.float64)
+        rotation = np.asarray(rotation, dtype=np.float64).reshape(3, 3)
+        identity = np.eye(3, dtype=np.float64).reshape(-1)
+        size = np.array([0.02, 0.02, 0.08], dtype=np.float64)
+        axes = (
+            (rotation[:, 0], np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)),
+            (rotation[:, 1], np.array([0.0, 0.8, 0.0, 1.0], dtype=np.float32)),
+            (rotation[:, 2], np.array([0.1, 0.3, 1.0, 1.0], dtype=np.float32)),
+        )
+
+        for direction, rgba in axes:
+            geom = scene.geoms[scene.ngeom]
+            endpoint = origin + length * direction
+            mujoco.mjv_initGeom(
+                geom,
+                mujoco.mjtGeom.mjGEOM_ARROW,
+                size,
+                origin,
+                identity,
+                rgba,
+            )
+            mujoco.mjv_connector(
+                geom,
+                mujoco.mjtGeom.mjGEOM_ARROW,
+                0.025,
+                origin,
+                endpoint,
+            )
+            scene.ngeom += 1
+
+    def add_coordinate_frames_to_scene():
+        add_axes_to_scene(np.zeros(3), np.eye(3), 0.6)
+        add_axes_to_scene(data.xpos[box_id], data.xmat[box_id], 0.35)
+
+    apply_visual_options()
 
     mujoco.mjv_defaultCamera(main_cam)
     main_cam.distance = 2.0
@@ -233,6 +281,11 @@ def main():
                     step_cnt = 0
                     force = p_part = i_part = d_part = 0.0
                     print("[R] 环境 & 控制器已重新加载")
+                elif k == glfw.KEY_C:
+                    show_coordinate_frames = not show_coordinate_frames
+                    apply_visual_options()
+                    state = "开启" if show_coordinate_frames else "关闭"
+                    print(f"[C] 坐标/惯性显示已{state}")
                 elif k == glfw.KEY_Q:
                     print("[Q] 退出")
                     glfw.set_window_should_close(window, True)
@@ -269,6 +322,7 @@ def main():
             mujoco.mjv_updateScene(
                 model, data, opt, None, main_cam, mujoco.mjtCatBit.mjCAT_ALL, scene
             )
+            add_coordinate_frames_to_scene()
             mujoco.mjr_render(viewport, scene, context)
 
             # ---- 右下角相机画面 ----
@@ -289,6 +343,7 @@ def main():
                 mujoco.mjv_updateScene(
                     model, data, opt, None, pip_cam, mujoco.mjtCatBit.mjCAT_ALL, scene
                 )
+                add_coordinate_frames_to_scene()
                 mujoco.mjr_render(pip_rect, scene, context)
                 if hasattr(mujoco, "mjr_overlay"):
                     mujoco.mjr_overlay(
