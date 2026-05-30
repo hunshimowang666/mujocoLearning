@@ -1,12 +1,12 @@
 """
-08_play_realtime.py
+04_play_realtime.py
 ===================
 打开 MuJoCo 可视化窗口，用训练好的模型实时控制机器人。
 
 用法:
-  python 08_play_realtime.py --model humanoid
-  python 08_play_realtime.py --model ant
-  python 08_play_realtime.py --model cheetah
+  python 04_play_realtime.py --model humanoid
+  python 04_play_realtime.py --model ant
+  python 04_play_realtime.py --model cheetah
 
 快捷键（在 MuJoCo 窗口中）:
   Space  - 暂停/继续
