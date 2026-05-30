@@ -22,6 +22,10 @@
             <!-- 显示用网格（高精度） -->
             <geom type="mesh" mesh="my_part" rgba="1 0 0 1" mass="1"/>
 
+            <!-- 固定在物体上的摄像头，会跟随 box 一起运动；在 simulate 中切换到 box_camera 查看 -->
+            <camera name="box_camera" pos="0 -0.35 0.2" xyaxes="1 0 0 0 0 1" fovy="60"/>
+            <site name="box_camera_mount" pos="0 -0.35 0.2" type="box" size="0.03 0.02 0.02" rgba="0 0.4 1 1"/>
+
             <!-- 碰撞用简化形状（高效，不显示）：解除注释可替换 mesh 碰撞 -->
             <!-- <geom type="box" size="0.1 0.1 0.1" mass="1" group="2" contype="1" conaffinity="1"/> -->
         </body>
