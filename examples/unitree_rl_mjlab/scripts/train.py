@@ -30,7 +30,7 @@ class TrainConfig:
   video_length: int = 200
   video_interval: int = 2000
   enable_nan_guard: bool = False
-  clear_old_logs: bool = False
+  clear_old_logs: bool = True
   constant_lin_vel_x: float | None = None
   constant_lin_vel_y: float = 0.0
   constant_ang_vel_z: float = 0.0
