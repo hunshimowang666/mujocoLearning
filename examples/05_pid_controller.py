@@ -22,6 +22,7 @@ BUTTON_RIGHT = False
 LAST_X = 0.0
 LAST_Y = 0.0
 SHOW_COORDINATE_FRAMES = True
+USE_PID_CONTROL = True
 
 
 class PIDController:
@@ -106,7 +107,9 @@ def main():
     print(f"平衡重力需: {mass * g:.0f} N  （全部由积分项提供）")
     print(f"物理步长  : {physics_dt*1000:.0f} ms ({1/physics_dt:.0f} Hz)")
     print(f"控制频率  : {control_rate} Hz  (每 {steps_per_ctrl} 个物理步更新一次)")
-    print(f"PID 参数  : Kp={pid.kp}, Ki={pid.ki}, Kd={pid.kd}")
+    print(f"PID 控制  : {'开启' if USE_PID_CONTROL else '关闭'}")
+    if USE_PID_CONTROL:
+        print(f"PID 参数  : Kp={pid.kp}, Ki={pid.ki}, Kd={pid.kd}")
     print("=" * 60)
     print("  [A] 向下冲击  [Z] 向上冲击  [R] 重置  [C] 坐标显示  [Q/Esc] 退出")
     print("  鼠标拖拽/滚轮控制主视角，右下角显示 box_camera 画面")
@@ -295,8 +298,10 @@ def main():
             err = target_z - z
 
             # ---- PID 仅在控制周期到来时更新 ----
-            if step_cnt % steps_per_ctrl == 0:
+            if USE_PID_CONTROL and step_cnt % steps_per_ctrl == 0:
                 force, p_part, i_part, d_part = pid.compute(err, control_dt)
+            elif not USE_PID_CONTROL:
+                force = p_part = i_part = d_part = 0.0
 
             # ---- 施加力（作用在质心，避免扭矩导致乱转） ----
             f_world = np.array([0.0, 0.0, force], dtype=np.float64)
