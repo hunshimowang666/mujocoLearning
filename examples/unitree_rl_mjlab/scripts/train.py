@@ -1,9 +1,12 @@
 """Script to train RL agent with RSL-RL."""
 
 import logging
+import contextlib
+import io
 import os
 import shutil
 import sys
+import statistics
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -42,6 +45,56 @@ class TrainConfig:
     env_cfg = load_env_cfg(task_id)
     agent_cfg = load_rl_cfg(task_id)
     return TrainConfig(env=env_cfg, agent=agent_cfg)
+
+
+def install_compact_training_console(runner, rank: int) -> None:
+  if rank != 0:
+    return
+
+  original_log = runner.logger.log
+
+  def log_compact(*args, **kwargs):
+    it = kwargs.get("it", args[0] if len(args) > 0 else None)
+    total_it = kwargs.get("total_it", args[2] if len(args) > 2 else None)
+    collect_time = kwargs.get("collect_time", args[3] if len(args) > 3 else None)
+    learn_time = kwargs.get("learn_time", args[4] if len(args) > 4 else None)
+    with contextlib.redirect_stdout(io.StringIO()):
+      original_log(*args, **kwargs)
+
+    if it is None or total_it is None or collect_time is None or learn_time is None:
+      return
+
+    iteration_time = collect_time + learn_time
+    collection_size = (
+      runner.logger.cfg["num_steps_per_env"]
+      * runner.logger.num_envs
+      * runner.logger.gpu_world_size
+    )
+    steps_per_second = int(collection_size / iteration_time) if iteration_time > 0.0 else 0
+    mean_reward = (
+      statistics.mean(runner.logger.rewbuffer)
+      if len(runner.logger.rewbuffer) > 0
+      else None
+    )
+    mean_episode_length = (
+      statistics.mean(runner.logger.lenbuffer)
+      if len(runner.logger.lenbuffer) > 0
+      else None
+    )
+    reward_text = f"{mean_reward:.2f}" if mean_reward is not None else "n/a"
+    length_text = (
+      f"{mean_episode_length:.2f}" if mean_episode_length is not None else "n/a"
+    )
+    print(
+      f"iter {it}/{total_it} | "
+      f"steps/s {steps_per_second} | "
+      f"mean reward {reward_text} | "
+      f"mean episode length {length_text}",
+      flush=True,
+    )
+
+  runner.logger.log = log_compact
+  print("[INFO] Compact training console enabled")
 
 
 def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
@@ -131,6 +184,7 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
   runner = runner_cls(env, agent_cfg, str(log_dir), device, **runner_kwargs)
 
   runner.add_git_repo_to_log(__file__)
+  install_compact_training_console(runner, rank)
   if resume_path is not None:
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     runner.load(str(resume_path))
@@ -140,8 +194,21 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
     dump_yaml(log_dir / "params" / "env.yaml", env_cfg)
     dump_yaml(log_dir / "params" / "agent.yaml", agent_cfg)
 
+  num_learning_iterations = cfg.agent.max_iterations
+  if resume_path is not None:
+    num_learning_iterations = max(
+      cfg.agent.max_iterations - runner.current_learning_iteration,
+      0,
+    )
+    print(
+      "[INFO] Resume target: "
+      f"current_iteration={runner.current_learning_iteration}, "
+      f"target_iteration={cfg.agent.max_iterations}, "
+      f"remaining_iterations={num_learning_iterations}"
+    )
+
   runner.learn(
-    num_learning_iterations=cfg.agent.max_iterations, init_at_random_ep_len=True
+    num_learning_iterations=num_learning_iterations, init_at_random_ep_len=True
   )
 
   env.close()

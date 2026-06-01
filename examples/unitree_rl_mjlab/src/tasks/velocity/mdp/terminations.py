@@ -23,3 +23,13 @@ def illegal_contact(
     return (force_mag > force_threshold).any(dim=-1).any(dim=-1)  # [B]
   assert data.found is not None
   return torch.any(data.found, dim=-1)
+
+
+def sine_path_complete(
+  env: ManagerBasedRlEnv,
+  duration: float,
+  warmup_duration: float = 0.0,
+) -> torch.Tensor:
+  """Finish the episode after the planned sine path duration."""
+  elapsed = env.episode_length_buf.to(dtype=torch.float32) * env.step_dt
+  return elapsed >= duration + warmup_duration

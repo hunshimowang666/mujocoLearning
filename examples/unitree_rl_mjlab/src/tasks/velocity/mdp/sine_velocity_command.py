@@ -32,9 +32,9 @@ class SineVelocityCommand(UniformVelocityCommand):
     self.reference_heading_w[env_ids] = self.robot.data.heading_w[env_ids]
 
   def _update_command(self) -> None:
+    path_time = self._env.episode_length_buf.to(dtype=torch.float32) * self._env.step_dt
     phase = (
-      self._env.episode_length_buf.to(dtype=torch.float32)
-      * self._env.step_dt
+      path_time
       / self.cfg.period
       + self.phase_offset
     )
@@ -63,7 +63,7 @@ class SineVelocityCommandCfg(UniformVelocityCommandCfg):
   lin_vel_x: float = 0.5
   lin_vel_y: float = 0.0
   ang_vel_z_amplitude: float = 0.6
-  period: float = 5.0
+  period: float = 10.0
   randomize_phase: bool = True
 
   def build(self, env: ManagerBasedRlEnv) -> SineVelocityCommand:

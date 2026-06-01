@@ -75,18 +75,8 @@ Train a Unitree G1 to mimic reference motion sequences.
 
 #### 2.1 Prepare Motion Files
 
-Prepare csv motion files in mjlab/motions/g1/ and convert them to npz format:
-
-```bash
-python scripts/csv_to_npz.py \
---input-file src/assets/motions/g1/dance1_subject2.csv \
---output-name dance1_subject2.npz \
---input-fps 30 \
---output-fps 50 \
---robot g1 # g1 or g1_23dof
-```
-
-**npz files will be stored at:**：`src/motions/g1/...`
+Prepare motion files in npz format under `src/motions/g1/...`. Refer to the
+mjlab documentation for the expected motion schema.
 
 #### 2.2 Training
 

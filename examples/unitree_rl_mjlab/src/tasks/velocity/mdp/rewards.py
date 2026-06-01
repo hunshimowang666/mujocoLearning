@@ -59,33 +59,6 @@ def track_angular_velocity(
   ang_vel_error = z_error + (0.05 * xy_error)
   return torch.exp(-ang_vel_error / std**2)
 
-
-def sine_path_tracking(
-  env: ManagerBasedRlEnv,
-  std: float,
-  command_name: str,
-  late_weight: float = 2.0,
-  ramp_duration: float = 10.0,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Reward tracking the integrated sine reference path in world xy."""
-  asset: Entity = env.scene[asset_cfg.name]
-  term = env.command_manager.get_term(command_name)
-  if not hasattr(term, "reference_pos_w"):
-    return torch.zeros(env.num_envs, device=env.device)
-
-  xy_error = torch.sum(
-    torch.square(asset.data.root_link_pos_w[:, :2] - term.reference_pos_w),
-    dim=1,
-  )
-  if ramp_duration <= 0.0:
-    time_scale = torch.ones(env.num_envs, device=env.device)
-  else:
-    elapsed = env.episode_length_buf.to(dtype=torch.float32) * env.step_dt
-    time_scale = 1.0 + late_weight * torch.clamp(elapsed / ramp_duration, 0.0, 1.0)
-  return time_scale * torch.exp(-xy_error / std**2)
-
-
 def body_orientation_l2(
   env: ManagerBasedRlEnv,
   asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,

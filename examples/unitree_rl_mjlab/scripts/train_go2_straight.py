@@ -1,8 +1,4 @@
-"""Train Unitree Go2 to follow a sine turning command.
-
-The command keeps forward velocity constant and drives yaw velocity with a sine
-wave, so the robot learns to walk an S-shaped path on flat ground.
-"""
+"""Train Unitree Go2 to walk straight at a fixed forward speed."""
 
 from __future__ import annotations
 
@@ -24,7 +20,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from train import TrainConfig, launch_training
 
 import src.tasks.velocity.mdp as velocity_mdp
-from src.tasks.velocity.mdp.sine_velocity_command import SineVelocityCommandCfg
 
 
 ##
@@ -33,15 +28,13 @@ from src.tasks.velocity.mdp.sine_velocity_command import SineVelocityCommandCfg
 ##
 
 DIRECT_TASK = "Unitree-Go2-Flat"
-DIRECT_EXPERIMENT_NAME = "go2_sine_velocity"
-DIRECT_LIN_VEL_X = 0.3
+DIRECT_EXPERIMENT_NAME = "go2_straight_velocity"
+DIRECT_LIN_VEL_X = 0.6
 DIRECT_LIN_VEL_Y = 0.0
-DIRECT_ANG_VEL_Z_AMPLITUDE = 0.35
-DIRECT_PERIOD = 10.0
-DIRECT_RANDOMIZE_PHASE = True
-DIRECT_PATH_DURATION = 20.0
+DIRECT_ANG_VEL_Z = 0.0
+DIRECT_EPISODE_LENGTH = 20.0
 DIRECT_NUM_ENVS = 4096
-DIRECT_MAX_ITERATIONS = 1000
+DIRECT_MAX_ITERATIONS = 5000
 DIRECT_GPU_IDS: list[int] | Literal["all"] | None = [0]
 
 # False: start a fresh run. True: continue from the newest checkpoint.
@@ -76,14 +69,12 @@ def find_latest_checkpoint(experiment_name: str) -> Path:
 
 
 @dataclass(frozen=True)
-class Go2SineTrainConfig:
+class Go2StraightTrainConfig:
   task: str = "Unitree-Go2-Flat"
-  lin_vel_x: float = 0.3
+  lin_vel_x: float = 3.0
   lin_vel_y: float = 0.0
-  ang_vel_z_amplitude: float = 0.35
-  period: float = 10.0
-  randomize_phase: bool = True
-  path_duration: float = 20.0
+  ang_vel_z: float = 0.0
+  episode_length: float = 20.0
   num_envs: int | None = None
   max_iterations: int | None = 1000
   gpu_ids: list[int] | Literal["all"] | None = field(default_factory=lambda: [0])
@@ -93,15 +84,13 @@ class Go2SineTrainConfig:
   resume_checkpoint: str = "model_.*.pt"
 
 
-def direct_train_config() -> Go2SineTrainConfig:
-  return Go2SineTrainConfig(
+def direct_train_config() -> Go2StraightTrainConfig:
+  return Go2StraightTrainConfig(
     task=DIRECT_TASK,
     lin_vel_x=DIRECT_LIN_VEL_X,
     lin_vel_y=DIRECT_LIN_VEL_Y,
-    ang_vel_z_amplitude=DIRECT_ANG_VEL_Z_AMPLITUDE,
-    period=DIRECT_PERIOD,
-    randomize_phase=DIRECT_RANDOMIZE_PHASE,
-    path_duration=DIRECT_PATH_DURATION,
+    ang_vel_z=DIRECT_ANG_VEL_Z,
+    episode_length=DIRECT_EPISODE_LENGTH,
     num_envs=DIRECT_NUM_ENVS,
     max_iterations=DIRECT_MAX_ITERATIONS,
     gpu_ids=DIRECT_GPU_IDS,
@@ -110,34 +99,26 @@ def direct_train_config() -> Go2SineTrainConfig:
   )
 
 
-def build_train_config(args: Go2SineTrainConfig) -> TrainConfig:
+def build_train_config(args: Go2StraightTrainConfig) -> TrainConfig:
   cfg = TrainConfig.from_task(args.task)
 
-  cfg.env.commands["twist"] = SineVelocityCommandCfg(
-    entity_name="robot",
-    ranges=UniformVelocityCommandCfg.Ranges(
-      lin_vel_x=(args.lin_vel_x, args.lin_vel_x),
-      lin_vel_y=(args.lin_vel_y, args.lin_vel_y),
-      ang_vel_z=(-args.ang_vel_z_amplitude, args.ang_vel_z_amplitude),
-      heading=None,
-    ),
-    heading_command=False,
-    rel_standing_envs=0.0,
-    rel_heading_envs=0.0,
-    resampling_time_range=(1.0e9, 1.0e9),
-    lin_vel_x=args.lin_vel_x,
-    lin_vel_y=args.lin_vel_y,
-    ang_vel_z_amplitude=args.ang_vel_z_amplitude,
-    period=args.period,
-    randomize_phase=args.randomize_phase,
-  )
-  cfg.env.episode_length_s = args.path_duration
-  cfg.env.terminations["sine_path_complete"] = TerminationTermCfg(
+  twist_cmd = cfg.env.commands["twist"]
+  assert isinstance(twist_cmd.ranges, UniformVelocityCommandCfg.Ranges)
+  twist_cmd.ranges.lin_vel_x = (args.lin_vel_x, args.lin_vel_x)
+  twist_cmd.ranges.lin_vel_y = (args.lin_vel_y, args.lin_vel_y)
+  twist_cmd.ranges.ang_vel_z = (args.ang_vel_z, args.ang_vel_z)
+  twist_cmd.ranges.heading = None
+  twist_cmd.heading_command = False
+  twist_cmd.rel_standing_envs = 0.0
+  twist_cmd.rel_heading_envs = 0.0
+  twist_cmd.resampling_time_range = (1.0e9, 1.0e9)
+
+  cfg.env.episode_length_s = args.episode_length
+  cfg.env.terminations["straight_path_complete"] = TerminationTermCfg(
     func=velocity_mdp.sine_path_complete,
     time_out=True,
-    params={"duration": args.path_duration},
+    params={"duration": args.episode_length},
   )
-
   cfg.agent.experiment_name = DIRECT_EXPERIMENT_NAME
   if args.max_iterations is not None:
     cfg.agent.max_iterations = args.max_iterations
@@ -158,7 +139,7 @@ def build_train_config(args: Go2SineTrainConfig) -> TrainConfig:
       cfg.agent.load_run = args.resume_run
       cfg.agent.load_checkpoint = args.resume_checkpoint
     print(
-      "[INFO] Resuming sine training from "
+      "[INFO] Resuming straight training from "
       f"run={cfg.agent.load_run}, checkpoint={cfg.agent.load_checkpoint}"
     )
 
@@ -177,9 +158,9 @@ def main() -> None:
 
   if len(sys.argv) == 1:
     args = direct_train_config()
-    print("[INFO] Running train_go2_sine.py with direct-run settings")
+    print("[INFO] Running train_go2_straight.py with direct-run settings")
   else:
-    args = tyro.cli(Go2SineTrainConfig)
+    args = tyro.cli(Go2StraightTrainConfig)
   os.chdir(PROJECT_ROOT)
   train_cfg = build_train_config(args)
   launch_training(task_id=args.task, args=train_cfg)
