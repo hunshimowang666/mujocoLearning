@@ -28,14 +28,23 @@ DEFAULT_MODEL = os.path.join(MODEL_DIR, "best_model.zip")
 FALLBACK_MODEL = os.path.join(MODEL_DIR, "calf_foot_latest.zip")
 DEFAULT_NORM = os.path.join(MODEL_DIR, "vec_normalize.pkl")
 
-MAX_EPISODE_STEPS = importlib.import_module("10_calf_foot_rl_train").MAX_EPISODE_STEPS
+TRAIN_CFG = importlib.import_module("10_calf_foot_rl_train")
+MAX_EPISODE_STEPS = TRAIN_CFG.MAX_EPISODE_STEPS
+MAX_TRACKING_ERROR_DEG = TRAIN_CFG.MAX_TRACKING_ERROR_DEG
+TARGET_ANGLE_TABLE = TRAIN_CFG.TARGET_ANGLE_TABLE
 IMPACT_DQ_DEG_PER_SEC = 286.0
 DISTURBANCE_TORQUE = 0.7
 DISTURBANCE_DURATION = 0.12
 
 
 def make_policy_env(norm_path):
-    env = DummyVecEnv([lambda: CalfFootHingeEnv(max_steps=MAX_EPISODE_STEPS)])
+    env = DummyVecEnv([
+        lambda: CalfFootHingeEnv(
+            max_steps=MAX_EPISODE_STEPS,
+            max_tracking_error_deg=MAX_TRACKING_ERROR_DEG,
+            target_table_path=TARGET_ANGLE_TABLE,
+        )
+    ])
     if os.path.exists(norm_path):
         env = VecNormalize.load(norm_path, env)
         env.training = False
@@ -62,7 +71,11 @@ def play(model_path, norm_path):
     policy_env = make_policy_env(norm_path)
     policy = PPO.load(model_path, env=policy_env, device="cpu")
 
-    env = CalfFootHingeEnv(max_steps=MAX_EPISODE_STEPS)
+    env = CalfFootHingeEnv(
+        max_steps=MAX_EPISODE_STEPS,
+        max_tracking_error_deg=MAX_TRACKING_ERROR_DEG,
+        target_table_path=TARGET_ANGLE_TABLE,
+    )
     obs, _ = env.reset(seed=0)
     obs_v = normalize_obs(policy_env, obs)
     impact_dq = np.deg2rad(IMPACT_DQ_DEG_PER_SEC)
@@ -72,6 +85,8 @@ def play(model_path, norm_path):
         pressed_keys.append(keycode)
 
     print(f"Loaded policy: {model_path}")
+    print(f"Target angle table: {TARGET_ANGLE_TABLE}")
+    print(f"Max tracking error before reset: {MAX_TRACKING_ERROR_DEG:.1f} deg")
     print("Controls: A/Z disturbance, R reset, Q/Esc quit")
 
     with viewer.launch_passive(env.model, env.data, key_callback=on_key) as v:
@@ -110,6 +125,7 @@ def play(model_path, norm_path):
                     env.external_torque = 0.0
                     wall_start = time.perf_counter()
                     sim_start = env.data.time
+                    t_print = 0.0
                     print("[R] reset")
                 elif key in (glfw.KEY_Q, glfw.KEY_ESCAPE):
                     should_quit = True
@@ -123,6 +139,15 @@ def play(model_path, norm_path):
             obs_v = normalize_obs(policy_env, obs)
 
             if terminated or truncated:
+                if terminated:
+                    reasons = []
+                    if info.get("error_too_large"):
+                        reasons.append("tracking error too large")
+                    if info.get("calf_too_low"):
+                        reasons.append("calf too low")
+                    print(f"[reset] terminated: {', '.join(reasons) or 'unknown'}")
+                elif truncated:
+                    print("[reset] episode complete")
                 obs, _ = env.reset()
                 obs_v = normalize_obs(policy_env, obs)
                 disturbance_until = 0.0
@@ -130,10 +155,13 @@ def play(model_path, norm_path):
                 env.external_torque = 0.0
                 wall_start = time.perf_counter()
                 sim_start = env.data.time
+                t_print = 0.0
 
             if env.data.time - t_print >= 0.5:
                 print(
                     f"t={env.data.time:5.2f}s | q={info['q_deg']:+.2f} deg | "
+                    f"target={info['target_q_deg']:+.2f} deg | "
+                    f"err={info['error_deg']:+.2f} deg | "
                     f"dq={info['dq_deg_s']:+.1f} deg/s | tau={info['torque']:+.3f} Nm | "
                     f"reward={reward:+.2f}"
                 )

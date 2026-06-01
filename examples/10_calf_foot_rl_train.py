@@ -26,15 +26,21 @@ from calf_foot_hinge_env import CalfFootHingeEnv
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "calf_foot_hinge")
 LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "calf_foot_hinge")
+TARGET_ANGLE_TABLE = os.path.join(SCRIPT_DIR, "calf_foot_target_angles.csv")
 MAX_EPISODE_STEPS = 500
-TOTAL_EPISODES = 400
+MAX_TRACKING_ERROR_DEG = 10.0
+TOTAL_EPISODES = 4000
 RESUME_TRAINING = False
 DELETE_OLD_NETWORKS = True
 CHECKPOINT_SAVE_FREQ = 10_000
 
 
 def make_env():
-    return CalfFootHingeEnv(max_steps=MAX_EPISODE_STEPS)
+    return CalfFootHingeEnv(
+        max_steps=MAX_EPISODE_STEPS,
+        max_tracking_error_deg=MAX_TRACKING_ERROR_DEG,
+        target_table_path=TARGET_ANGLE_TABLE,
+    )
 
 
 def delete_old_outputs():
@@ -160,12 +166,13 @@ def main():
         timesteps = args.episodes * MAX_EPISODE_STEPS
     print(
         f"[CalfFootRL] episodes={args.episodes}, max_episode_steps={MAX_EPISODE_STEPS}, "
-        f"total_timesteps={timesteps}"
+        f"max_tracking_error={MAX_TRACKING_ERROR_DEG} deg, total_timesteps={timesteps}"
     )
     print(
         f"[CalfFootRL] resume={args.resume}, delete_old_networks={args.delete_old_networks}, "
         f"model_dir={MODEL_DIR}, log_dir={LOG_DIR}"
     )
+    print(f"[CalfFootRL] target_angle_table={TARGET_ANGLE_TABLE}")
     train(timesteps, args.resume, args.delete_old_networks)
 
 
