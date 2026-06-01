@@ -3,7 +3,8 @@
 ===================
 PID torque control for calf_foot_hinge.xml.
 
-The controller keeps ankle_hinge near q=0, which is the upright pose in the XML.
+The controller keeps ankle_hinge near the target angle.
+Angles exposed in this file are in degrees; MuJoCo state/control math still uses radians internally.
 
 Controls:
   A      add a gentle negative angular-velocity disturbance
@@ -21,13 +22,13 @@ from mujoco import viewer
 from mujoco.glfw import glfw
 
 
-INITIAL_Q = 0.12
-TARGET_Q = INITIAL_Q
+INITIAL_Q_DEG = 0.0
+TARGET_Q_DEG = INITIAL_Q_DEG
 KP = 1.8
 KI = 0.08
 KD = 0.18
 TORQUE_LIMIT = 2.0
-IMPACT_DQ = 5.0
+IMPACT_DQ_DEG_PER_SEC = 286.0
 DISTURBANCE_TORQUE = 0.7
 DISTURBANCE_DURATION = 0.12
 
@@ -62,10 +63,13 @@ def main():
     dof_adr = model.jnt_dofadr[joint_id]
     joint_axis = model.jnt_axis[joint_id].copy()
     pid = JointPID()
+    initial_q = np.deg2rad(INITIAL_Q_DEG)
+    target_q = np.deg2rad(TARGET_Q_DEG)
+    impact_dq = np.deg2rad(IMPACT_DQ_DEG_PER_SEC)
 
     def reset_pose():
         mujoco.mj_resetData(model, data)
-        data.qpos[qpos_adr] = INITIAL_Q
+        data.qpos[qpos_adr] = initial_q
         data.qvel[dof_adr] = 0.0
         mujoco.mj_forward(model, data)
         pid.reset()
@@ -79,8 +83,8 @@ def main():
 
     print(f"Loaded: {xml_path}")
     print(f"Joint: ankle_hinge, axis={joint_axis}")
-    print(f"Initial joint angle: {INITIAL_Q:.3f} rad")
-    print(f"Target joint angle: {TARGET_Q:.3f} rad")
+    print(f"Initial joint angle: {INITIAL_Q_DEG:.2f} deg")
+    print(f"Target joint angle: {TARGET_Q_DEG:.2f} deg")
     print(f"PID: kp={KP}, ki={KI}, kd={KD}, torque_limit={TORQUE_LIMIT} Nm")
     print("Controls: A/Z disturbance, R reset, Q/Esc quit")
 
@@ -99,21 +103,21 @@ def main():
             while pressed_keys:
                 key = pressed_keys.pop(0)
                 if key == glfw.KEY_A:
-                    data.qvel[dof_adr] -= IMPACT_DQ
+                    data.qvel[dof_adr] -= impact_dq
                     disturbance_torque = -DISTURBANCE_TORQUE
                     disturbance_until = data.time + DISTURBANCE_DURATION
                     mujoco.mj_forward(model, data)
                     print(
-                        f"[A] disturbance: qvel={data.qvel[dof_adr]:+.2f} rad/s, "
+                        f"[A] disturbance: qvel={np.rad2deg(data.qvel[dof_adr]):+.1f} deg/s, "
                         f"pulse={disturbance_torque:+.2f} Nm"
                     )
                 elif key == glfw.KEY_Z:
-                    data.qvel[dof_adr] += IMPACT_DQ
+                    data.qvel[dof_adr] += impact_dq
                     disturbance_torque = DISTURBANCE_TORQUE
                     disturbance_until = data.time + DISTURBANCE_DURATION
                     mujoco.mj_forward(model, data)
                     print(
-                        f"[Z] disturbance: qvel={data.qvel[dof_adr]:+.2f} rad/s, "
+                        f"[Z] disturbance: qvel={np.rad2deg(data.qvel[dof_adr]):+.1f} deg/s, "
                         f"pulse={disturbance_torque:+.2f} Nm"
                     )
                 elif key == glfw.KEY_R:
@@ -131,7 +135,7 @@ def main():
 
             q = float(data.qpos[qpos_adr])
             dq = float(data.qvel[dof_adr])
-            error = TARGET_Q - q
+            error = target_q - q
             torque = pid.compute(error, dq, model.opt.timestep)
             if data.time < disturbance_until:
                 torque += disturbance_torque
@@ -143,8 +147,9 @@ def main():
 
             if data.time - t_print >= 0.5:
                 print(
-                    f"t={data.time:5.2f}s | q={q:+.3f} rad | dq={dq:+.3f} rad/s | "
-                    f"err={error:+.3f} | tau={torque:+.3f} Nm"
+                    f"t={data.time:5.2f}s | q={np.rad2deg(q):+.2f} deg | "
+                    f"dq={np.rad2deg(dq):+.1f} deg/s | "
+                    f"err={np.rad2deg(error):+.2f} deg | tau={torque:+.3f} Nm"
                 )
                 t_print = data.time
 

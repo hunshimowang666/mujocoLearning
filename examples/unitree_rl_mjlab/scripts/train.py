@@ -1,5 +1,5 @@
 """Script to train RL agent with RSL-RL."""
-
+# 走直线和走曲线都用这个文件
 import logging
 import contextlib
 import io
