@@ -26,15 +26,17 @@ def track_linear_velocity(
   command_name: str,
   asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
 ) -> torch.Tensor:
-  """Reward for tracking the commanded base linear velocity.
+  """Reward for tracking the commanded base linear speed.
 
-  The commanded z velocity is assumed to be zero.
+  The commanded z velocity is assumed to be zero, and actual z velocity is penalized.
   """
   asset: Entity = env.scene[asset_cfg.name]
   command = env.command_manager.get_command(command_name)
   assert command is not None, f"Command '{command_name}' not found."
   actual = asset.data.root_link_lin_vel_b
-  xy_error = torch.sum(torch.square(command[:, :2] - actual[:, :2]), dim=1)
+  command_speed = torch.linalg.norm(command[:, :2], dim=1)
+  actual_speed = torch.linalg.norm(actual[:, :2], dim=1)
+  xy_error = torch.square(command_speed - actual_speed)
   z_error = torch.square(actual[:, 2])
   lin_vel_error = xy_error + (2 * z_error)
   return torch.exp(-lin_vel_error / std**2)

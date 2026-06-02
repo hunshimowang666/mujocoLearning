@@ -1,10 +1,11 @@
 """
-11_calf_foot_rl_play.py
-=======================
-Play the trained RL torque controller for calf_foot_hinge.xml.
+15_car_all_hinge_rl_play.py
+===========================
+Play the trained RL controller for carAll_hinge.xml.
 
 Usage:
-  ./venv/bin/python examples/11_calf_foot_rl_play.py
+  ./venv/bin/python examples/15_car_all_hinge_rl_play.py
+  ./venv/bin/python examples/15_car_all_hinge_rl_play.py --model examples/models/car_all_hinge/car_all_latest.zip
 """
 
 import argparse
@@ -12,37 +13,34 @@ import importlib
 import os
 import time
 
-import mujoco
-import numpy as np
 from mujoco import viewer
 from mujoco.glfw import glfw
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-from calf_foot_hinge_env import CalfFootHingeEnv
+from car_all_hinge_env import CarAllHingeEnv
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "calf_foot_hinge")
+MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "car_all_hinge")
 DEFAULT_MODEL = os.path.join(MODEL_DIR, "best_model.zip")
-FALLBACK_MODEL = os.path.join(MODEL_DIR, "calf_foot_latest.zip")
+FALLBACK_MODEL = os.path.join(MODEL_DIR, "car_all_latest.zip")
 DEFAULT_NORM = os.path.join(MODEL_DIR, "vec_normalize.pkl")
 
-TRAIN_CFG = importlib.import_module("10_calf_foot_rl_train")
+TRAIN_CFG = importlib.import_module("14_car_all_hinge_rl_train")
 MAX_EPISODE_STEPS = TRAIN_CFG.MAX_EPISODE_STEPS
-MAX_TRACKING_ERROR_DEG = TRAIN_CFG.MAX_TRACKING_ERROR_DEG
-TARGET_ANGLE_TABLE = TRAIN_CFG.TARGET_ANGLE_TABLE
-IMPACT_DQ_DEG_PER_SEC = 286.0
-DISTURBANCE_TORQUE = 0.7
-DISTURBANCE_DURATION = 0.12
+TARGET_SPEED = TRAIN_CFG.TARGET_SPEED
+MAX_TORQUE = TRAIN_CFG.MAX_TORQUE
+MAX_WHEEL_SPEED = TRAIN_CFG.MAX_WHEEL_SPEED
 
 
-def make_policy_env(norm_path):
+def make_policy_env(norm_path, target_speed):
     env = DummyVecEnv([
-        lambda: CalfFootHingeEnv(
+        lambda: CarAllHingeEnv(
+            target_speed=target_speed,
             max_steps=MAX_EPISODE_STEPS,
-            max_tracking_error_deg=MAX_TRACKING_ERROR_DEG,
-            target_table_path=TARGET_ANGLE_TABLE,
+            max_torque=MAX_TORQUE,
+            max_wheel_speed=MAX_WHEEL_SPEED,
         )
     ])
     if os.path.exists(norm_path):
@@ -59,42 +57,42 @@ def normalize_obs(policy_env, obs):
     return obs_v
 
 
-def play(model_path, norm_path):
+def play(model_path, norm_path, target_speed):
     if not os.path.exists(model_path):
         if model_path == DEFAULT_MODEL and os.path.exists(FALLBACK_MODEL):
             model_path = FALLBACK_MODEL
         else:
             raise FileNotFoundError(
-                f"Model not found: {model_path}\nRun: ./venv/bin/python examples/10_calf_foot_rl_train.py"
+                f"Model not found: {model_path}\n"
+                "Run: ./venv/bin/python examples/14_car_all_hinge_rl_train.py"
             )
 
-    policy_env = make_policy_env(norm_path)
+    policy_env = make_policy_env(norm_path, target_speed)
     policy = PPO.load(model_path, env=policy_env, device="cuda")
 
-    env = CalfFootHingeEnv(
+    env = CarAllHingeEnv(
+        target_speed=target_speed,
         max_steps=MAX_EPISODE_STEPS,
-        max_tracking_error_deg=MAX_TRACKING_ERROR_DEG,
-        target_table_path=TARGET_ANGLE_TABLE,
+        max_torque=MAX_TORQUE,
+        max_wheel_speed=MAX_WHEEL_SPEED,
     )
     obs, _ = env.reset(seed=0)
     obs_v = normalize_obs(policy_env, obs)
-    impact_dq = np.deg2rad(IMPACT_DQ_DEG_PER_SEC)
     pressed_keys = []
 
     def on_key(keycode):
         pressed_keys.append(keycode)
 
     print(f"Loaded policy: {model_path}")
-    print(f"Target angle table: {TARGET_ANGLE_TABLE}")
-    print(f"Max tracking error before reset: {MAX_TRACKING_ERROR_DEG:.1f} deg")
-    print("Controls: A/Z disturbance, R reset, Q/Esc quit")
+    print(f"Target speed: {target_speed:.3f} m/s")
+    print("Controls: R reset, Q/Esc quit")
 
     with viewer.launch_passive(env.model, env.data, key_callback=on_key) as v:
         wall_start = time.perf_counter()
         sim_start = env.data.time
         t_print = 0.0
-        disturbance_until = 0.0
-        disturbance_torque = 0.0
+        info = {}
+        reward = 0.0
 
         while v.is_running():
             wall_elapsed = time.perf_counter() - wall_start
@@ -105,24 +103,9 @@ def play(model_path, norm_path):
             should_quit = False
             while pressed_keys:
                 key = pressed_keys.pop(0)
-                if key == glfw.KEY_A:
-                    env.data.qvel[env.dof_adr] -= impact_dq
-                    disturbance_torque = -DISTURBANCE_TORQUE
-                    disturbance_until = env.data.time + DISTURBANCE_DURATION
-                    mujoco.mj_forward(env.model, env.data)
-                    print(f"[A] disturbance: qvel={np.rad2deg(env.data.qvel[env.dof_adr]):+.1f} deg/s")
-                elif key == glfw.KEY_Z:
-                    env.data.qvel[env.dof_adr] += impact_dq
-                    disturbance_torque = DISTURBANCE_TORQUE
-                    disturbance_until = env.data.time + DISTURBANCE_DURATION
-                    mujoco.mj_forward(env.model, env.data)
-                    print(f"[Z] disturbance: qvel={np.rad2deg(env.data.qvel[env.dof_adr]):+.1f} deg/s")
-                elif key == glfw.KEY_R:
+                if key == glfw.KEY_R:
                     obs, _ = env.reset(seed=0)
                     obs_v = normalize_obs(policy_env, obs)
-                    disturbance_until = 0.0
-                    disturbance_torque = 0.0
-                    env.external_torque = 0.0
                     wall_start = time.perf_counter()
                     sim_start = env.data.time
                     t_print = 0.0
@@ -134,36 +117,36 @@ def play(model_path, norm_path):
                 break
 
             action, _ = policy.predict(obs_v, deterministic=True)
-            env.external_torque = disturbance_torque if env.data.time < disturbance_until else 0.0
             obs, reward, terminated, truncated, info = env.step(action[0])
             obs_v = normalize_obs(policy_env, obs)
 
             if terminated or truncated:
                 if terminated:
                     reasons = []
-                    if info.get("error_too_large"):
-                        reasons.append("tracking error too large")
-                    if info.get("calf_too_low"):
-                        reasons.append("calf too low")
+                    for key, label in (
+                        ("too_tilted", "tilted"),
+                        ("too_low", "too low"),
+                        ("drifted", "drifted"),
+                        ("bad_speed", "speed unstable"),
+                    ):
+                        if info.get(key):
+                            reasons.append(label)
                     print(f"[reset] terminated: {', '.join(reasons) or 'unknown'}")
                 elif truncated:
                     print("[reset] episode complete")
                 obs, _ = env.reset()
                 obs_v = normalize_obs(policy_env, obs)
-                disturbance_until = 0.0
-                disturbance_torque = 0.0
-                env.external_torque = 0.0
                 wall_start = time.perf_counter()
                 sim_start = env.data.time
                 t_print = 0.0
 
-            if env.data.time - t_print >= 0.5:
+            if env.data.time - t_print >= 0.5 and info:
                 print(
-                    f"t={env.data.time:5.2f}s | q={info['q_deg']:+.2f} deg | "
-                    f"target={info['target_q_deg']:+.2f} deg | "
-                    f"err={info['error_deg']:+.2f} deg | "
-                    f"dq={info['dq_deg_s']:+.1f} deg/s | tau={info['torque']:+.3f} Nm | "
-                    f"reward={reward:+.2f}"
+                    f"t={env.data.time:5.2f}s | speed={info['linear_speed']:+.3f} m/s | "
+                    f"forward={info['forward_speed']:+.3f} | "
+                    f"target={info['target_speed']:+.3f} | err={info['speed_error']:+.3f} | "
+                    f"align={info['forward_alignment']:+.2f} | y={info['lateral_pos']:+.3f} | "
+                    f"up={info['up_z']:+.2f} | reward={reward:+.2f}"
                 )
                 t_print = env.data.time
 
@@ -177,8 +160,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--norm", default=DEFAULT_NORM)
+    parser.add_argument("--target-speed", type=float, default=TARGET_SPEED)
     args = parser.parse_args()
-    play(args.model, args.norm)
+    play(args.model, args.norm, args.target_speed)
 
 
 if __name__ == "__main__":

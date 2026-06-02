@@ -41,7 +41,7 @@ def train(timesteps, resume):
     latest_model = os.path.join(MODEL_DIR, "box_hover_latest")
     if resume and os.path.exists(latest_model + ".zip"):
         print(f"[BoxHover] Resuming from {latest_model}.zip")
-        model = PPO.load(latest_model, env=env, device="cpu")
+        model = PPO.load(latest_model, env=env, device="cuda")
     else:
         model = PPO(
             "MlpPolicy",
@@ -55,7 +55,7 @@ def train(timesteps, resume):
             clip_range=0.2,
             ent_coef=0.0,
             verbose=1,
-            device="cpu",
+            device="cuda",
         )
 
     eval_cb = EvalCallback(

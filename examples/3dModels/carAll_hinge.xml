@@ -1,0 +1,60 @@
+<mujoco model="carAll_hinge">
+    <compiler angle="degree" autolimits="true"/>
+    <option gravity="0 0 -10" timestep="0.002"/>
+
+    <asset>
+        <!-- SolidWorks 导出的 STL 使用 mm，这里统一缩放到 MuJoCo 的 m -->
+        <mesh name="car_body_mesh" file="car_body.STL" scale="0.001 0.001 0.001"/>
+        <mesh name="wheel_fl_mesh" file="wheel_fl.STL" scale="0.001 0.001 0.001"/>
+        <mesh name="wheel_fr_mesh" file="wheel_fr.STL" scale="0.001 0.001 0.001"/>
+        <mesh name="wheel_rl_mesh" file="wheel_rl.STL" scale="0.001 0.001 0.001"/>
+        <mesh name="wheel_rr_mesh" file="wheel_rr.STL" scale="0.001 0.001 0.001"/>
+    </asset>
+
+    <worldbody>
+        <light diffuse=".5 .5 .5" pos="0 0 2" dir="0 0 -1"/>
+        <geom type="plane" size="2 2 0.1" friction="1.5 0.02 0.002" rgba=".9 .9 .9 1"/>
+
+        <!--
+            carAll 的 STL 坐标近似为：
+              X: 车长方向
+              Y: 竖直方向
+              Z: 左右宽度方向
+            MuJoCo 里 Z 是竖直方向，所以这里把局部 +Y 转到世界 +Z。
+            整车根 body 放在 z=0.015m，使轮子最低点大约接触地面。
+        -->
+        <body name="chassis" pos="0 0 0.015" euler="90 0 0">
+            <freejoint/>
+            <geom name="car_body_geom" type="mesh" mesh="car_body_mesh" rgba="0.8 0.8 0.75 1" mass="1.5"/>
+
+            <!--
+                轮子 STL 已经带装配坐标，所以 wheel body 放在轮心，
+                wheel geom 再用相反 pos 把 mesh 对齐到 body 原点。
+                四个 hinge 都绕车体局部 Z 轴，也就是轮轴方向。
+            -->
+            <body name="wheel_fl" pos="-0.035 0 0.035">
+                <joint name="wheel_fl_hinge" type="hinge" pos="0 0 0" axis="0 0 1" damping="0.02"/>
+                <geom name="wheel_fl_geom" type="mesh" mesh="wheel_fl_mesh" pos="0.035 0 -0.035" friction="1.5 0.02 0.002" rgba="0.12 0.12 0.12 1" mass="0.1"/>
+                <site name="wheel_fl_center" pos="0 0 0" type="sphere" size="0.004" rgba="1 0 0 1"/>
+            </body>
+
+            <body name="wheel_fr" pos="0.035 0 0.035">
+                <joint name="wheel_fr_hinge" type="hinge" pos="0 0 0" axis="0 0 1" damping="0.02"/>
+                <geom name="wheel_fr_geom" type="mesh" mesh="wheel_fr_mesh" pos="-0.035 0 -0.035" friction="1.5 0.02 0.002" rgba="0.12 0.12 0.12 1" mass="0.1"/>
+                <site name="wheel_fr_center" pos="0 0 0" type="sphere" size="0.004" rgba="1 0 0 1"/>
+            </body>
+
+            <body name="wheel_rl" pos="-0.035 0 -0.035">
+                <joint name="wheel_rl_hinge" type="hinge" pos="0 0 0" axis="0 0 1" damping="0.02"/>
+                <geom name="wheel_rl_geom" type="mesh" mesh="wheel_rl_mesh" pos="0.035 0 0.035" friction="1.5 0.02 0.002" rgba="0.12 0.12 0.12 1" mass="0.1"/>
+                <site name="wheel_rl_center" pos="0 0 0" type="sphere" size="0.004" rgba="1 0 0 1"/>
+            </body>
+
+            <body name="wheel_rr" pos="0.035 0 -0.035">
+                <joint name="wheel_rr_hinge" type="hinge" pos="0 0 0" axis="0 0 1" damping="0.02"/>
+                <geom name="wheel_rr_geom" type="mesh" mesh="wheel_rr_mesh" pos="-0.035 0 0.035" friction="1.5 0.02 0.002" rgba="0.12 0.12 0.12 1" mass="0.1"/>
+                <site name="wheel_rr_center" pos="0 0 0" type="sphere" size="0.004" rgba="1 0 0 1"/>
+            </body>
+        </body>
+    </worldbody>
+</mujoco>

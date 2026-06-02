@@ -71,7 +71,7 @@ def play(model_path, norm_path):
             )
 
     policy_env = make_policy_env(norm_path)
-    policy = PPO.load(model_path, env=policy_env, device="cpu")
+    policy = PPO.load(model_path, env=policy_env, device="cuda")
 
     env = make_env()
     obs, _ = env.reset(seed=0)

@@ -89,7 +89,7 @@ def train(timesteps, resume, delete_old_networks):
             env.training = True
             env.norm_reward = True
         print(f"[CalfFootRL] Resuming from {resume_model}")
-        model = PPO.load(resume_model, env=env, device="cpu")
+        model = PPO.load(resume_model, env=env, device="cuda")
     elif resume:
         print("[CalfFootRL] Resume requested, but no checkpoint was found. Starting new training.")
         model = PPO(
@@ -104,7 +104,7 @@ def train(timesteps, resume, delete_old_networks):
             clip_range=0.2,
             ent_coef=0.0,
             verbose=1,
-            device="cpu",
+            device="cuda",
         )
     else:
         model = PPO(
@@ -119,7 +119,7 @@ def train(timesteps, resume, delete_old_networks):
             clip_range=0.2,
             ent_coef=0.0,
             verbose=1,
-            device="cpu",
+            device="cuda",
         )
 
     eval_cb = EvalCallback(

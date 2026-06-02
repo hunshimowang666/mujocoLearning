@@ -1,12 +1,16 @@
 """
-12_thigh_calf_foot_rl_train.py
-==============================
-Train an RL torque controller for thigh_calf_foot_hinge.xml.
+16_car_all_hinge_sine_path_rl_train.py
+======================================
+Train an RL controller for sine-path tracking with carAll_hinge.xml.
+
+Action space:
+  [front-left, front-right, rear-left, rear-right] wheel angular velocity commands,
+  normalized to [-1, 1].
 
 Usage:
-  ./venv/bin/python examples/12_thigh_calf_foot_rl_train.py
-  ./venv/bin/python examples/12_thigh_calf_foot_rl_train.py --episodes 1000
-  ./venv/bin/python examples/12_thigh_calf_foot_rl_train.py --resume
+  ./venv/bin/python examples/16_car_all_hinge_sine_path_rl_train.py
+  ./venv/bin/python examples/16_car_all_hinge_sine_path_rl_train.py --episodes 2000
+  ./venv/bin/python examples/16_car_all_hinge_sine_path_rl_train.py --resume
 """
 
 import argparse
@@ -19,28 +23,33 @@ from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
-from thigh_calf_foot_hinge_env import ThighCalfFootHingeEnv
+from car_all_hinge_sine_path_env import CarAllHingeSinePathEnv
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "thigh_calf_foot_hinge")
-LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "thigh_calf_foot_hinge")
-TARGET_ANGLE_TABLE = os.path.join(SCRIPT_DIR, "calf_foot_target_angles.csv")
-
-MAX_EPISODE_STEPS = 500
-MAX_TRACKING_ERROR_DEG = 15.0
-TOTAL_EPISODES = 2000
+MODEL_DIR = os.path.join(SCRIPT_DIR, "models", "car_all_hinge_sine_path")
+LOG_DIR = os.path.join(SCRIPT_DIR, "logs", "car_all_hinge_sine_path")
+MAX_EPISODE_STEPS = 600
+PATH_SPEED = 0.10
+PATH_AMPLITUDE = 0.10
+PATH_WAVELENGTH = 2.0
+MAX_TORQUE = 0.25
+MAX_WHEEL_SPEED = 40.0
+TOTAL_EPISODES = 3000
 RESUME_TRAINING = False
 DELETE_OLD_NETWORKS = True
 CHECKPOINT_SAVE_FREQ = 10_000
-NUM_ENVS = 8
+NUM_ENVS = 32
 
 
 def make_env():
-    return ThighCalfFootHingeEnv(
+    return CarAllHingeSinePathEnv(
+        path_speed=PATH_SPEED,
+        path_amplitude=PATH_AMPLITUDE,
+        path_wavelength=PATH_WAVELENGTH,
         max_steps=MAX_EPISODE_STEPS,
-        max_tracking_error_deg=MAX_TRACKING_ERROR_DEG,
-        target_table_path=TARGET_ANGLE_TABLE,
+        max_torque=MAX_TORQUE,
+        max_wheel_speed=MAX_WHEEL_SPEED,
     )
 
 
@@ -48,24 +57,24 @@ def delete_old_outputs():
     for path in (MODEL_DIR, LOG_DIR):
         if os.path.exists(path):
             shutil.rmtree(path)
-            print(f"[ThighCalfFootRL] Deleted old output: {path}")
+            print(f"[CarSinePathRL] Deleted old output: {path}")
 
 
 def get_checkpoint_norm_path(model_path):
-    if model_path.endswith("thigh_calf_foot_latest.zip"):
+    if model_path.endswith("car_sine_path_latest.zip"):
         return os.path.join(MODEL_DIR, "vec_normalize.pkl")
     return model_path[:-4] + "_vecnormalize.pkl"
 
 
 def find_latest_resume_model():
-    candidates = glob.glob(os.path.join(MODEL_DIR, "thigh_calf_foot_latest.zip"))
-    candidates += glob.glob(os.path.join(MODEL_DIR, "thigh_calf_foot_ppo_*_steps.zip"))
+    candidates = glob.glob(os.path.join(MODEL_DIR, "car_sine_path_latest.zip"))
+    candidates += glob.glob(os.path.join(MODEL_DIR, "car_sine_path_ppo_*_steps.zip"))
     if not candidates:
         return None
     return max(candidates, key=os.path.getmtime)
 
 
-def make_model(env):
+def build_model(env):
     return PPO(
         "MlpPolicy",
         env,
@@ -73,18 +82,19 @@ def make_model(env):
         batch_size=256,
         n_epochs=8,
         gamma=0.98,
-        gae_lambda=0.95,
+        gae_lambda=0.94,
         learning_rate=3e-4,
         clip_range=0.2,
-        ent_coef=0.0,
+        ent_coef=0.01,
         verbose=1,
-        device="cuda",
+        # device="cuda",
+        device="cpu",
     )
 
 
 def train(timesteps, resume, delete_old_networks):
-    if delete_old_networks and resume:
-        print("[ThighCalfFootRL] Resume is enabled, so old network deletion is skipped.")
+    if resume:
+        print("[CarSinePathRL] Resume is enabled; old network deletion is skipped.")
     elif delete_old_networks:
         delete_old_outputs()
 
@@ -97,7 +107,7 @@ def train(timesteps, resume, delete_old_networks):
     eval_env = make_vec_env(make_env, n_envs=1, seed=7)
     eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
 
-    latest_model = os.path.join(MODEL_DIR, "thigh_calf_foot_latest")
+    latest_model = os.path.join(MODEL_DIR, "car_sine_path_latest")
     latest_norm_path = os.path.join(MODEL_DIR, "vec_normalize.pkl")
     resume_model = find_latest_resume_model() if resume else None
     if resume_model is not None:
@@ -106,13 +116,18 @@ def train(timesteps, resume, delete_old_networks):
             env = VecNormalize.load(norm_path, env.venv)
             env.training = True
             env.norm_reward = True
-        print(f"[ThighCalfFootRL] Resuming from {resume_model}")
-        model = PPO.load(resume_model, env=env, device="cuda")
+        print(f"[CarSinePathRL] Resuming from {resume_model}")
+        # model = PPO.load(resume_model, env=env, device="cuda")
+        model = PPO.load(resume_model, env=env, device="cpu")
     elif resume:
-        print("[ThighCalfFootRL] Resume requested, but no checkpoint was found. Starting new training.")
-        model = make_model(env)
+        env.close()
+        eval_env.close()
+        raise FileNotFoundError(
+            f"Resume requested, but no saved model was found in {MODEL_DIR}. "
+            "Run without --resume to start a new network."
+        )
     else:
-        model = make_model(env)
+        model = build_model(env)
 
     eval_cb = EvalCallback(
         eval_env,
@@ -126,7 +141,7 @@ def train(timesteps, resume, delete_old_networks):
     checkpoint_cb = CheckpointCallback(
         save_freq=CHECKPOINT_SAVE_FREQ,
         save_path=MODEL_DIR,
-        name_prefix="thigh_calf_foot_ppo",
+        name_prefix="car_sine_path_ppo",
         save_vecnormalize=True,
         verbose=1,
     )
@@ -142,7 +157,8 @@ def train(timesteps, resume, delete_old_networks):
     env.save(latest_norm_path)
     env.close()
     eval_env.close()
-    print(f"[ThighCalfFootRL] Saved model to {latest_model}.zip")
+    print(f"[CarSinePathRL] Saved model to {latest_model}.zip")
+    print(f"[CarSinePathRL] Saved VecNormalize to {latest_norm_path}")
 
 
 def main():
@@ -157,14 +173,14 @@ def main():
     if timesteps is None:
         timesteps = args.episodes * MAX_EPISODE_STEPS
     print(
-        f"[ThighCalfFootRL] episodes={args.episodes}, max_episode_steps={MAX_EPISODE_STEPS}, "
-        f"max_tracking_error={MAX_TRACKING_ERROR_DEG} deg, total_timesteps={timesteps}"
+        f"[CarSinePathRL] episodes={args.episodes}, max_episode_steps={MAX_EPISODE_STEPS}, "
+        f"path_speed={PATH_SPEED:.3f} m/s, amplitude={PATH_AMPLITUDE:.3f} m, "
+        f"wavelength={PATH_WAVELENGTH:.3f} m, total_timesteps={timesteps}"
     )
     print(
-        f"[ThighCalfFootRL] resume={args.resume}, delete_old_networks={args.delete_old_networks}, "
+        f"[CarSinePathRL] resume={args.resume}, delete_old_networks={args.delete_old_networks}, "
         f"model_dir={MODEL_DIR}, log_dir={LOG_DIR}"
     )
-    print(f"[ThighCalfFootRL] target_angle_table={TARGET_ANGLE_TABLE}")
     train(timesteps, args.resume, args.delete_old_networks)
 
 
