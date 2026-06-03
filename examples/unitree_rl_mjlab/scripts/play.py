@@ -48,6 +48,21 @@ from train_go2_straight import (  # noqa: E402
 )
 from train_go2_straight import DIRECT_LIN_VEL_X as TRAIN_STRAIGHT_LIN_VEL_X  # noqa: E402
 from train_go2_straight import DIRECT_LIN_VEL_Y as TRAIN_STRAIGHT_LIN_VEL_Y  # noqa: E402
+from train_go2_circle import DIRECT_ANG_VEL_Z as TRAIN_CIRCLE_ANG_VEL_Z  # noqa: E402
+from train_go2_circle import (  # noqa: E402
+  DIRECT_EXPERIMENT_NAME as TRAIN_CIRCLE_EXPERIMENT_NAME,
+)
+from train_go2_circle import DIRECT_LIN_VEL_X as TRAIN_CIRCLE_LIN_VEL_X  # noqa: E402
+from train_go2_circle import DIRECT_LIN_VEL_Y as TRAIN_CIRCLE_LIN_VEL_Y  # noqa: E402
+from train_go2_circle import DIRECT_PATH_DURATION as TRAIN_CIRCLE_PATH_DURATION  # noqa: E402
+from train_go2_curve import (  # noqa: E402
+  DIRECT_ANG_VEL_Z_AMPLITUDE as TRAIN_CURVE_ANG_VEL_Z_AMPLITUDE,
+)
+from train_go2_curve import DIRECT_EXPERIMENT_NAME as TRAIN_CURVE_EXPERIMENT_NAME  # noqa: E402
+from train_go2_curve import DIRECT_LIN_VEL_X as TRAIN_CURVE_LIN_VEL_X  # noqa: E402
+from train_go2_curve import DIRECT_LIN_VEL_Y as TRAIN_CURVE_LIN_VEL_Y  # noqa: E402
+from train_go2_curve import DIRECT_PATH_DURATION as TRAIN_CURVE_PATH_DURATION  # noqa: E402
+from train_go2_curve import DIRECT_PERIOD as TRAIN_CURVE_PERIOD  # noqa: E402
 
 
 ##
@@ -55,7 +70,9 @@ from train_go2_straight import DIRECT_LIN_VEL_Y as TRAIN_STRAIGHT_LIN_VEL_Y  # n
 # Edit these values, then run this file directly from the IDE.
 ##
 
-DIRECT_PLAY_MODE: Literal["sine", "straight"] = "sine"
+# DIRECT_PLAY_MODE: Literal["sine", "straight", "curve", "circle"] = "curve"
+DIRECT_PLAY_MODE: Literal["sine", "straight", "curve", "circle"] = "circle"
+# DIRECT_PLAY_MODE: Literal["sine", "straight", "curve", "circle"] = "sine"
 # DIRECT_PLAY_MODE: Literal["sine", "straight"] = "straight"
 DIRECT_PLAY_TASK = TRAIN_TASK
 DIRECT_PLAY_EXPERIMENT_NAME = TRAIN_EXPERIMENT_NAME
@@ -71,6 +88,8 @@ DIRECT_PLAY_VIEWER: Literal["auto", "native", "viser"] = "viser"
 DIRECT_STRICT_REALTIME_STEPS = False
 DIRECT_RENDER_FRAME_RATE = 10.0
 DIRECT_TARGET_STEPS_PER_SECOND: float | None = 10.0
+DIRECT_CURVE_TARGET_STEPS_PER_SECOND: float | None = 50.0
+DIRECT_CIRCLE_TARGET_STEPS_PER_SECOND: float | None = 50.0
 
 DIRECT_SHOW_SINE_PATH = True
 
@@ -138,6 +157,13 @@ class PlayConfig:
   straight_path_duration: float = 20.0
   straight_path_points: int = 160
   straight_path_z: float = 0.035
+  circle_lin_vel_x: float | None = None
+  circle_lin_vel_y: float = 0.0
+  circle_ang_vel_z: float = 0.05
+  show_circle_path: bool = True
+  circle_path_duration: float = 20.0
+  circle_path_points: int = 160
+  circle_path_z: float = 0.035
   sine_fixed_start: bool = True
   sine_hide_twist_debug: bool = True
   video: bool = False
@@ -207,14 +233,51 @@ def direct_play_config(task_id: str) -> PlayConfig:
       show_straight_path=True,
       straight_path_duration=TRAIN_STRAIGHT_PATH_DURATION,
     )
+  if DIRECT_PLAY_MODE == "curve":
+    if DIRECT_PLAY_AGENT == "trained" and DIRECT_PLAY_LATEST_CHECKPOINT:
+      checkpoint_file = str(find_latest_checkpoint(TRAIN_CURVE_EXPERIMENT_NAME))
+    return PlayConfig(
+      agent=DIRECT_PLAY_AGENT,
+      checkpoint_file=checkpoint_file,
+      num_envs=DIRECT_PLAY_NUM_ENVS,
+      device=DIRECT_PLAY_DEVICE,
+      viewer=DIRECT_PLAY_VIEWER,
+      strict_realtime_steps=DIRECT_STRICT_REALTIME_STEPS,
+      render_frame_rate=DIRECT_RENDER_FRAME_RATE,
+      target_steps_per_second=DIRECT_CURVE_TARGET_STEPS_PER_SECOND,
+      sine_lin_vel_x=TRAIN_CURVE_LIN_VEL_X,
+      sine_lin_vel_y=TRAIN_CURVE_LIN_VEL_Y,
+      sine_ang_vel_z_amplitude=TRAIN_CURVE_ANG_VEL_Z_AMPLITUDE,
+      sine_period=TRAIN_CURVE_PERIOD,
+      show_sine_path=DIRECT_SHOW_SINE_PATH,
+      sine_path_duration=TRAIN_CURVE_PATH_DURATION,
+    )
+  if DIRECT_PLAY_MODE == "circle":
+    if DIRECT_PLAY_AGENT == "trained" and DIRECT_PLAY_LATEST_CHECKPOINT:
+      checkpoint_file = str(find_latest_checkpoint(TRAIN_CIRCLE_EXPERIMENT_NAME))
+    return PlayConfig(
+      agent=DIRECT_PLAY_AGENT,
+      checkpoint_file=checkpoint_file,
+      num_envs=DIRECT_PLAY_NUM_ENVS,
+      device=DIRECT_PLAY_DEVICE,
+      viewer=DIRECT_PLAY_VIEWER,
+      strict_realtime_steps=DIRECT_STRICT_REALTIME_STEPS,
+      render_frame_rate=DIRECT_RENDER_FRAME_RATE,
+      target_steps_per_second=DIRECT_CIRCLE_TARGET_STEPS_PER_SECOND,
+      circle_lin_vel_x=TRAIN_CIRCLE_LIN_VEL_X,
+      circle_lin_vel_y=TRAIN_CIRCLE_LIN_VEL_Y,
+      circle_ang_vel_z=TRAIN_CIRCLE_ANG_VEL_Z,
+      show_circle_path=True,
+      circle_path_duration=TRAIN_CIRCLE_PATH_DURATION,
+    )
   raise ValueError(f"Unsupported DIRECT_PLAY_MODE: {DIRECT_PLAY_MODE}")
 
 
 def apply_constant_twist_command(env: ManagerBasedRlEnv, cfg: PlayConfig, device: str):
   if cfg.constant_lin_vel_x is None:
     return
-  if cfg.sine_lin_vel_x is not None:
-    raise ValueError("Use either --constant-lin-vel-x or --sine-lin-vel-x, not both.")
+  if cfg.sine_lin_vel_x is not None or cfg.circle_lin_vel_x is not None:
+    raise ValueError("Use only one of constant, sine, or circle velocity commands.")
 
   term = env.command_manager.get_term("twist")
   if not hasattr(term, "vel_command_b"):
@@ -249,6 +312,54 @@ def apply_constant_twist_command(env: ManagerBasedRlEnv, cfg: PlayConfig, device
     f"lin_vel_x={cfg.constant_lin_vel_x}, "
     f"lin_vel_y={cfg.constant_lin_vel_y}, "
     f"ang_vel_z={cfg.constant_ang_vel_z}"
+  )
+
+
+def apply_circle_twist_command(env: ManagerBasedRlEnv, cfg: PlayConfig, device: str):
+  if cfg.circle_lin_vel_x is None:
+    return
+  if cfg.sine_lin_vel_x is not None or cfg.constant_lin_vel_x is not None:
+    raise ValueError("Use only one of constant, sine, or circle velocity commands.")
+
+  term = env.command_manager.get_term("twist")
+  if not hasattr(term, "vel_command_b"):
+    raise ValueError("--circle-lin-vel-x requires a velocity task with a twist command.")
+
+  command = torch.tensor(
+    [cfg.circle_lin_vel_x, cfg.circle_lin_vel_y, cfg.circle_ang_vel_z],
+    device=device,
+  )
+
+  def set_command(env_ids=None):
+    if env_ids is None:
+      term.vel_command_b[:, :] = command
+    else:
+      term.vel_command_b[env_ids, :] = command
+    if hasattr(term, "is_standing_env"):
+      term.is_standing_env[:] = False
+    if hasattr(term, "is_heading_env"):
+      term.is_heading_env[:] = False
+
+  def resample_command(env_ids):
+    set_command(env_ids)
+
+  def update_command():
+    set_command()
+
+  term._resample_command = resample_command
+  term._update_command = update_command
+  set_command()
+  radius = (
+    float("inf")
+    if abs(cfg.circle_ang_vel_z) < 1.0e-6
+    else cfg.circle_lin_vel_x / cfg.circle_ang_vel_z
+  )
+  print(
+    "[INFO] Using circle twist command: "
+    f"lin_vel_x={cfg.circle_lin_vel_x}, "
+    f"lin_vel_y={cfg.circle_lin_vel_y}, "
+    f"ang_vel_z={cfg.circle_ang_vel_z}, "
+    f"radius≈{radius:.2f}m"
   )
 
 
@@ -441,10 +552,81 @@ def install_straight_path_visualizer(env: ManagerBasedRlEnv, cfg: PlayConfig) ->
   )
 
 
+def make_circle_path_points(cfg: PlayConfig) -> np.ndarray:
+  if cfg.circle_lin_vel_x is None:
+    return np.zeros((0, 3), dtype=np.float32)
+  if cfg.circle_path_duration <= 0.0:
+    raise ValueError("--circle-path-duration must be positive.")
+  if cfg.circle_path_points < 2:
+    raise ValueError("--circle-path-points must be at least 2.")
+
+  path = np.zeros((cfg.circle_path_points, 3), dtype=np.float32)
+  path[:, 2] = cfg.circle_path_z
+  heading = 0.0
+  dt = cfg.circle_path_duration / (cfg.circle_path_points - 1)
+  for i in range(1, cfg.circle_path_points):
+    heading += cfg.circle_ang_vel_z * dt
+    c = np.cos(heading)
+    s = np.sin(heading)
+    vx_w = c * cfg.circle_lin_vel_x - s * cfg.circle_lin_vel_y
+    vy_w = s * cfg.circle_lin_vel_x + c * cfg.circle_lin_vel_y
+    path[i, 0] = path[i - 1, 0] + vx_w * dt
+    path[i, 1] = path[i - 1, 1] + vy_w * dt
+  return path
+
+
+def install_circle_path_visualizer(env: ManagerBasedRlEnv, cfg: PlayConfig) -> None:
+  if cfg.circle_lin_vel_x is None or not cfg.show_circle_path:
+    return
+
+  path = make_circle_path_points(cfg)
+  original_update_visualizers = env.update_visualizers
+
+  def update_visualizers_with_circle_path(visualizer):
+    original_update_visualizers(visualizer)
+    env_origins = getattr(env.scene, "env_origins", None)
+    for env_idx in visualizer.get_env_indices(env.num_envs):
+      if env_origins is None:
+        origin = np.zeros(3, dtype=np.float32)
+      else:
+        origin = env_origins[env_idx].detach().cpu().numpy()
+      points = path + origin
+      for start, end in zip(points[:-1], points[1:]):
+        visualizer.add_cylinder(
+          start,
+          end,
+          radius=0.018,
+          color=(0.65, 0.85, 0.15, 0.9),
+        )
+      visualizer.add_sphere(
+        points[0],
+        radius=0.06,
+        color=(0.0, 0.9, 0.2, 0.95),
+      )
+      visualizer.add_sphere(
+        points[-1],
+        radius=0.06,
+        color=(1.0, 0.2, 0.1, 0.95),
+      )
+
+  env.update_visualizers = update_visualizers_with_circle_path
+  radius = (
+    float("inf")
+    if abs(cfg.circle_ang_vel_z) < 1.0e-6
+    else cfg.circle_lin_vel_x / cfg.circle_ang_vel_z
+  )
+  print(
+    "[INFO] Drawing circle reference path: "
+    f"duration={cfg.circle_path_duration}s, points={cfg.circle_path_points}, "
+    f"radius≈{radius:.2f}m"
+  )
+
+
 def configure_sine_fixed_start(env_cfg, cfg: PlayConfig) -> None:
   if (
     cfg.sine_lin_vel_x is None
     and cfg.constant_lin_vel_x is None
+    and cfg.circle_lin_vel_x is None
   ) or not cfg.sine_fixed_start:
     return
 
@@ -469,7 +651,7 @@ def configure_sine_debug_visualization(env_cfg, cfg: PlayConfig) -> None:
   twist_cmd = env_cfg.commands.get("twist")
   if twist_cmd is not None and hasattr(twist_cmd, "debug_vis"):
     twist_cmd.debug_vis = False
-    print("[INFO] Sine play twist debug arrows hidden")
+    print("[INFO] Play twist debug arrows hidden")
 
 
 def configure_sine_terminations(env_cfg, cfg: PlayConfig) -> None:
@@ -505,6 +687,24 @@ def configure_straight_terminations(env_cfg, cfg: PlayConfig) -> None:
   print(
     "[INFO] Straight play terminations enabled: "
     f"duration={cfg.straight_path_duration}s"
+  )
+
+
+def configure_circle_terminations(env_cfg, cfg: PlayConfig) -> None:
+  if cfg.circle_lin_vel_x is None:
+    return
+
+  import src.tasks.velocity.mdp as velocity_mdp
+
+  env_cfg.episode_length_s = cfg.circle_path_duration
+  env_cfg.terminations["circle_path_complete"] = TerminationTermCfg(
+    func=velocity_mdp.sine_path_complete,
+    time_out=True,
+    params={"duration": cfg.circle_path_duration},
+  )
+  print(
+    "[INFO] Circle play terminations enabled: "
+    f"duration={cfg.circle_path_duration}s"
   )
 
 
@@ -604,6 +804,7 @@ def run_play(task_id: str, cfg: PlayConfig):
   if not cfg.no_terminations:
     configure_sine_terminations(env_cfg, cfg)
     configure_straight_terminations(env_cfg, cfg)
+    configure_circle_terminations(env_cfg, cfg)
 
   render_mode = "rgb_array" if (TRAINED_MODE and cfg.video) else None
   if cfg.video and DUMMY_MODE:
@@ -612,9 +813,11 @@ def run_play(task_id: str, cfg: PlayConfig):
     )
   env = ManagerBasedRlEnv(cfg=env_cfg, device=device, render_mode=render_mode)
   apply_constant_twist_command(env, cfg, device)
+  apply_circle_twist_command(env, cfg, device)
   apply_sine_twist_command(env, cfg)
   install_sine_path_visualizer(env, cfg)
   install_straight_path_visualizer(env, cfg)
+  install_circle_path_visualizer(env, cfg)
 
   if TRAINED_MODE and cfg.video:
     print("[INFO] Recording videos during play")

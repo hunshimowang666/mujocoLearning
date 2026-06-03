@@ -42,6 +42,28 @@ def track_linear_velocity(
   return torch.exp(-lin_vel_error / std**2)
 
 
+def track_body_forward_velocity(
+  env: ManagerBasedRlEnv,
+  std: float,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward tracking of the commanded body-frame forward velocity.
+
+  The default linear velocity reward tracks horizontal speed magnitude, which
+  can be too forgiving for tasks that must move forward along a path.  This term
+  compares the commanded body-frame x velocity directly against the actual
+  body-frame x velocity.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  actual_forward = asset.data.root_link_lin_vel_b[:, 0]
+  target_forward = command[:, 0]
+  error = torch.square(target_forward - actual_forward)
+  return torch.exp(-error / std**2)
+
+
 def track_angular_velocity(
   env: ManagerBasedRlEnv,
   std: float,
