@@ -5,7 +5,7 @@
 
   <default>
     <default class="go2">
-      <geom friction="1.0 0.02 0.001" margin="0.001" condim="3"/>
+      <geom friction="4.0 0.30 0.08" margin="0.001" condim="6"/>
       <joint axis="0 1 0" damping="0.1" armature="0.01" frictionloss="0.2"/>
       <motor ctrlrange="-23.7 23.7"/>
       <default class="abduction">
@@ -30,7 +30,7 @@
         <geom group="3"/>
         <default class="foot">
           <geom size="0.022" pos="-0.002 0 -0.213" priority="1" condim="6"
-            friction="1.2 0.08 0.02"/>
+            friction="4.0 0.30 0.08"/>
         </default>
       </default>
     </default>
@@ -286,6 +286,6 @@
   <worldbody>
     <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" condim="6"
-      friction="1.2 0.08 0.02"/>
+      friction="4.0 0.30 0.08"/>
   </worldbody>
 </mujoco>
