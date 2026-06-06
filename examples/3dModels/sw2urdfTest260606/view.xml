@@ -1,0 +1,30 @@
+<mujoco model="solidworks_export_view">
+  <compiler angle="radian" meshdir="meshes"/>
+
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <asset>
+    <mesh name="base_link_mesh" file="base_link.STL"/>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.18 0.22 0.27" rgb2="0.28 0.34 0.40"/>
+    <material name="grid" texture="grid" texrepeat="8 8" reflectance="0.15"/>
+    <material name="cabin_yellow" rgba="0.96863 0.57647 0 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 -3 3" dir="0 1 -1" diffuse="0.8 0.8 0.8"/>
+    <camera name="view" pos="0 -1.2 0.55" xyaxes="1 0 0 0 0.45 0.89"/>
+    <geom name="floor" type="plane" size="2 2 0.02" material="grid"/>
+
+    <body name="base_link" pos="0 0 0.35">
+      <freejoint/>
+      <inertial pos="-1.0184e-07 -3.545e-09 0.014199"
+                mass="3.4609"
+                fullinertia="0.035738 0.045774 0.051746 -0.00027831 -4.3464e-08 -2.8717e-08"/>
+      <geom name="base_link_visual" type="mesh" mesh="base_link_mesh"
+            material="cabin_yellow" contype="0" conaffinity="0"/>
+      <geom name="base_link_collision" type="mesh" mesh="base_link_mesh"
+            rgba="0.96863 0.57647 0 0.2"/>
+    </body>
+  </worldbody>
+</mujoco>

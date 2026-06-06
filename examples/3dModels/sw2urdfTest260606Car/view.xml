@@ -1,0 +1,90 @@
+<mujoco model="sw2urdf_test_car_view">
+  <compiler angle="radian" meshdir="meshes"/>
+
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <default>
+    <joint damping="0.001" armature="0.00001"/>
+    <geom friction="1.2 0.02 0.001"/>
+  </default>
+
+  <asset>
+    <mesh name="base_link_mesh" file="base_link.STL"/>
+    <mesh name="br_wheel_mesh" file="BRWHEEL.STL"/>
+    <mesh name="bl_wheel_mesh" file="BLWHEEL.STL"/>
+    <mesh name="fr_wheel_mesh" file="FRWHEEL.STL"/>
+    <mesh name="fl_wheel_mesh" file="FLWHEEL.STL"/>
+
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.18 0.22 0.27" rgb2="0.28 0.34 0.40"/>
+    <material name="grid" texture="grid" texrepeat="8 8" reflectance="0.15"/>
+    <material name="body_white" rgba="0.92 0.92 0.88 1"/>
+    <material name="wheel_dark" rgba="0.08 0.08 0.08 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 -1.5 1.5" dir="0 1 -1" diffuse="0.8 0.8 0.8"/>
+    <camera name="view" pos="0.18 -0.35 0.18" xyaxes="0.88 0.48 0 -0.18 0.33 0.93"/>
+    <geom name="floor" type="plane" size="1 1 0.02" material="grid"/>
+
+    <body name="base_link" pos="0 0 0.08">
+      <freejoint/>
+      <inertial pos="-1.03650438129083e-17 -1.61176583042564e-21 -3.07775466843409e-19"
+                mass="0.0503926990816987"
+                fullinertia="1.113174372927e-05 5.28628001043509e-05 4.25656168930446e-05 -5.2773480857275e-22 -1.05982515983357e-21 -3.30920467085792e-40"/>
+      <geom name="base_link_visual" type="mesh" mesh="base_link_mesh"
+            material="body_white" contype="0" conaffinity="0"/>
+      <geom name="base_link_collision" type="mesh" mesh="base_link_mesh"
+            rgba="0.92 0.92 0.88 0.18"/>
+      <geom name="x_forward_axis" type="capsule" fromto="0 0 0.018 0.065 0 0.018"
+            size="0.0025" rgba="1 0 0 1" contype="0" conaffinity="0"/>
+      <geom name="x_forward_tip" type="sphere" pos="0.068 0 0.018"
+            size="0.006" rgba="1 0 0 1" contype="0" conaffinity="0"/>
+
+      <body name="BRWHEEL" pos="-0.035 -0.03 0"
+            quat="0.3933450129 -0.5876034923 0.5876056507 -0.3933464578">
+        <joint name="BRJ" type="hinge" axis="-1 0 0" limited="false"/>
+        <inertial pos="0.005 0 0" mass="0.0070686"
+                  fullinertia="7.9522e-07 4.5651e-07 4.5651e-07 -4.8981e-24 3.064e-23 2.647e-23"/>
+        <geom name="BRWHEEL_visual" type="mesh" mesh="br_wheel_mesh"
+              material="wheel_dark" contype="0" conaffinity="0"/>
+        <geom name="BRWHEEL_collision" type="mesh" mesh="br_wheel_mesh"
+              rgba="0.08 0.08 0.08 0.25"/>
+      </body>
+
+      <body name="BLWHEEL" pos="-0.035 0.03 0"
+            quat="0.4619312936 0.5353668307 0.5353687972 0.4619329904">
+        <joint name="BLJ" type="hinge" axis="1 0 0" limited="false"/>
+        <inertial pos="0.005 1.73472347597681e-18 6.93889390390723e-18"
+                  mass="0.00706858347057703"
+                  fullinertia="7.95215640439917e-07 4.56512682474767e-07 4.56512682474767e-07 -1.0910133145124e-24 1.61539049475061e-25 -1.32348898008484e-23"/>
+        <geom name="BLWHEEL_visual" type="mesh" mesh="bl_wheel_mesh"
+              material="wheel_dark" contype="0" conaffinity="0"/>
+        <geom name="BLWHEEL_collision" type="mesh" mesh="bl_wheel_mesh"
+              rgba="0.08 0.08 0.08 0.25"/>
+      </body>
+
+      <body name="FRWHEEL" pos="0.035 -0.03 0"
+            quat="0.3553256318 -0.6113443046 0.6113465502 -0.355326937">
+        <joint name="FRJ" type="hinge" axis="-1 0 0" limited="false"/>
+        <inertial pos="0.005 0 0" mass="0.00706858347057703"
+                  fullinertia="7.95215640439916e-07 4.56512682474767e-07 4.56512682474767e-07 1.29129150775348e-23 1.83956129535077e-23 3.97046694025453e-23"/>
+        <geom name="FRWHEEL_visual" type="mesh" mesh="fr_wheel_mesh"
+              material="wheel_dark" contype="0" conaffinity="0"/>
+        <geom name="FRWHEEL_collision" type="mesh" mesh="fr_wheel_mesh"
+              rgba="0.08 0.08 0.08 0.25"/>
+      </body>
+
+      <body name="FLWHEEL" pos="0.035 0.03 0"
+            quat="0.3561506226 -0.6108640581 0.6108663019 -0.3561519308">
+        <joint name="FLJ" type="hinge" axis="-1 0 0" limited="false"/>
+        <inertial pos="-0.005 0 0" mass="0.00706858347057703"
+                  fullinertia="7.95215640439916e-07 4.56512682474767e-07 4.56512682474767e-07 -4.61931754064618e-24 4.31118156006129e-23 -3.15779106970461e-40"/>
+        <geom name="FLWHEEL_visual" type="mesh" mesh="fl_wheel_mesh"
+              material="wheel_dark" contype="0" conaffinity="0"/>
+        <geom name="FLWHEEL_collision" type="mesh" mesh="fl_wheel_mesh"
+              rgba="0.08 0.08 0.08 0.25"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

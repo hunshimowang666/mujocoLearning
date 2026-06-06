@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="sw2urdfTest260606Car">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-1.03650438129083E-17 -1.61176583042564E-21 -3.07775466843409E-19"
+        rpy="0 0 0" />
+      <mass
+        value="0.0503926990816987" />
+      <inertia
+        ixx="1.113174372927E-05"
+        ixy="-5.2773480857275E-22"
+        ixz="-1.05982515983357E-21"
+        iyy="5.28628001043509E-05"
+        iyz="-3.30920467085792E-40"
+        izz="4.25656168930446E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="BRWHEEL">
+    <inertial>
+      <origin
+        xyz="0.005 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.0070686" />
+      <inertia
+        ixx="7.9522E-07"
+        ixy="-4.8981E-24"
+        ixz="3.064E-23"
+        iyy="4.5651E-07"
+        iyz="2.647E-23"
+        izz="4.5651E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/BRWHEEL.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/BRWHEEL.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="BRJ"
+    type="revolute">
+    <origin
+      xyz="-0.035 -0.03 0"
+      rpy="-1.9618 0 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="BRWHEEL" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="BLWHEEL">
+    <inertial>
+      <origin
+        xyz="0.005 1.73472347597681E-18 6.93889390390723E-18"
+        rpy="0 0 0" />
+      <mass
+        value="0.00706858347057703" />
+      <inertia
+        ixx="7.95215640439917E-07"
+        ixy="-1.0910133145124E-24"
+        ixz="1.61539049475061E-25"
+        iyy="4.56512682474767E-07"
+        iyz="-1.32348898008484E-23"
+        izz="4.56512682474767E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/BLWHEEL.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/BLWHEEL.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="BLJ"
+    type="revolute">
+    <origin
+      xyz="-0.035 0.03 0"
+      rpy="1.7178 0 1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="BLWHEEL" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="FRWHEEL">
+    <inertial>
+      <origin
+        xyz="0.005 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.00706858347057703" />
+      <inertia
+        ixx="7.95215640439916E-07"
+        ixy="1.29129150775348E-23"
+        ixz="1.83956129535077E-23"
+        iyy="4.56512682474767E-07"
+        iyz="3.97046694025453E-23"
+        izz="4.56512682474767E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/FRWHEEL.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/FRWHEEL.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FRJ"
+    type="revolute">
+    <origin
+      xyz="0.035 -0.03 0"
+      rpy="-2.0886 0 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="FRWHEEL" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="FLWHEEL">
+    <inertial>
+      <origin
+        xyz="-0.005 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0.00706858347057703" />
+      <inertia
+        ixx="7.95215640439916E-07"
+        ixy="-4.61931754064618E-24"
+        ixz="4.31118156006129E-23"
+        iyy="4.56512682474767E-07"
+        iyz="-3.15779106970461E-40"
+        izz="4.56512682474767E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/FLWHEEL.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfTest260606Car/meshes/FLWHEEL.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FLJ"
+    type="revolute">
+    <origin
+      xyz="0.035 0.03 0"
+      rpy="-2.0859 0 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="FLWHEEL" />
+    <axis
+      xyz="1 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+</robot>

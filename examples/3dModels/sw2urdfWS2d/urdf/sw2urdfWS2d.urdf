@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="sw2urdfWS2d">
+  <link
+    name="backDrivenCabin">
+    <inertial>
+      <origin
+        xyz="-1.58703085885771E-07 -0.0462855357367795 -0.00083893647493423"
+        rpy="0 0 0" />
+      <mass
+        value="5.94333504291267" />
+      <inertia
+        ixx="0.05065030444631"
+        ixy="4.33941126540489E-08"
+        ixz="-0.000278613283705558"
+        iyy="0.0787556572438086"
+        iyz="-4.43469112913998E-06"
+        izz="0.0608823150159988" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/backDrivenCabin.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.411764705882353 0.411764705882353 0.411764705882353 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/backDrivenCabin.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="frontDrivenCabin">
+    <inertial>
+      <origin
+        xyz="-1.63127334655211E-07 -0.419439622488326 0.00195154287583103"
+        rpy="0 0 0" />
+      <mass
+        value="6.28907190774222" />
+      <inertia
+        ixx="0.0538005603256902"
+        ixy="4.33958813501213E-08"
+        ixz="-0.000278613283705526"
+        iyy="0.0847113379618653"
+        iyz="-4.25365720591421E-06"
+        izz="0.0639791683968027" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/frontDrivenCabin.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/frontDrivenCabin.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J1"
+    type="revolute">
+    <origin
+      xyz="0 -0.388 0"
+      rpy="0 0 0" />
+    <parent
+      link="backDrivenCabin" />
+    <child
+      link="frontDrivenCabin" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="headCabin">
+    <inertial>
+      <origin
+        xyz="2.82670958949681E-06 0.0050086732844179 0.326719213716778"
+        rpy="0 0 0" />
+      <mass
+        value="4.40387857644999" />
+      <inertia
+        ixx="0.0574561778760165"
+        ixy="1.99081524582439E-07"
+        ixz="-1.35519957731174E-07"
+        iyy="0.0574181363967825"
+        iyz="1.24168050548233E-07"
+        izz="0.078072933867114" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/headCabin.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.933333333333333 0.372549019607843 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/headCabin.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J2"
+    type="revolute">
+    <origin
+      xyz="0 -0.776 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="frontDrivenCabin" />
+    <child
+      link="headCabin" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="FR">
+    <inertial>
+      <origin
+        xyz="2.67719476334952E-06 -0.00821452737266326 0.00191068038065456"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202484" />
+      <inertia
+        ixx="0.000129954159439666"
+        ixy="-1.46424862865547E-08"
+        ixz="-6.27270268619217E-12"
+        iyy="0.000119854046883797"
+        iyz="-1.94024404784293E-08"
+        izz="9.74198043808335E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FR.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FR.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FRJ"
+    type="fixed">
+    <origin
+      xyz="0.194999771339964 -0.248658356702528 0.00251455813324088"
+      rpy="1.57079632679514 1.56934569550971 -3.14159265358955" />
+    <parent
+      link="frontDrivenCabin" />
+    <child
+      link="FR" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="FL">
+    <inertial>
+      <origin
+        xyz="2.67719476338291E-06 -0.00821452737266321 0.00191068038065467"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202483" />
+      <inertia
+        ixx="0.000129954159439665"
+        ixy="-1.46424862865548E-08"
+        ixz="-6.27270249709518E-12"
+        iyy="0.000119854046883797"
+        iyz="-1.94024404784619E-08"
+        izz="9.74198043808332E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FL.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FL.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FLJ"
+    type="fixed">
+    <origin
+      xyz="-0.195000249703343 -0.248658356702528 0.00248554551770515"
+      rpy="-1.57079632679514 -1.56934569550971 0" />
+    <parent
+      link="frontDrivenCabin" />
+    <child
+      link="FL" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="FU">
+    <inertial>
+      <origin
+        xyz="2.67719476321204E-06 -0.00821452737266329 0.00191068038065466"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202485" />
+      <inertia
+        ixx="0.000129954159439666"
+        ixy="-1.46424862851623E-08"
+        ixz="-6.27270220425965E-12"
+        iyy="0.000119854046883797"
+        iyz="-1.94024404776292E-08"
+        izz="9.74198043808337E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FU.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FU.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FUJ"
+    type="fixed">
+    <origin
+      xyz="-0.00100023918168426 -0.512172863010291 -0.0949999376528762"
+      rpy="-1.57079632679494 0.00145063128510239 1.5707963267949" />
+    <parent
+      link="frontDrivenCabin" />
+    <child
+      link="FU" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="FD">
+    <inertial>
+      <origin
+        xyz="2.67719476299E-06 -0.00821452737266332 0.00191068038065474"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202484" />
+      <inertia
+        ixx="0.000129954159439666"
+        ixy="-1.46424862852724E-08"
+        ixz="-6.2727019716175E-12"
+        iyy="0.000119854046883796"
+        iyz="-1.94024404767218E-08"
+        izz="9.74198043808334E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FD.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/FD.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="FDJ"
+    type="fixed">
+    <origin
+      xyz="0.000999760818305179 -0.512172863010291 0.100000041303816"
+      rpy="1.57079632679482 -0.0014506312851017 1.57079632679489" />
+    <parent
+      link="frontDrivenCabin" />
+    <child
+      link="FD" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="BR">
+    <inertial>
+      <origin
+        xyz="2.62536934734868E-06 -0.00821452729748362 0.00191068038065448"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202483" />
+      <inertia
+        ixx="0.000129954159439665"
+        ixy="-1.46424862866884E-08"
+        ixz="-6.27270254963009E-12"
+        iyy="0.000119854046883796"
+        iyz="-1.94024404784353E-08"
+        izz="9.74198043808335E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BR.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BR.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="BRJ"
+    type="fixed">
+    <origin
+      xyz="0.195 0.13934 1.4506E-05"
+      rpy="1.5708 1.5693 -3.1416" />
+    <parent
+      link="backDrivenCabin" />
+    <child
+      link="BR" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="BL">
+    <inertial>
+      <origin
+        xyz="2.72902017836113E-06 -0.00821452744784287 0.00191068038065451"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202483" />
+      <inertia
+        ixx="0.000129954159439665"
+        ixy="-1.46424862865997E-08"
+        ixz="-6.2727026411895E-12"
+        iyy="0.000119854046883797"
+        iyz="-1.94024404784626E-08"
+        izz="9.74198043808334E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BL.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BL.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="BLJ"
+    type="fixed">
+    <origin
+      xyz="-0.195 0.13934 -1.4506E-05"
+      rpy="-1.5708 -1.5693 0" />
+    <parent
+      link="backDrivenCabin" />
+    <child
+      link="BL" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="BU">
+    <inertial>
+      <origin
+        xyz="2.67719476318429E-06 -0.00821452737266336 0.0019106803806546"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202483" />
+      <inertia
+        ixx="0.000129954159439665"
+        ixy="-1.46424862854772E-08"
+        ixz="-6.27270248051508E-12"
+        iyy="0.000119854046883796"
+        iyz="-1.94024404775099E-08"
+        izz="9.74198043808332E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BU.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BU.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="BUJ"
+    type="fixed">
+    <origin
+      xyz="-0.0010002 -0.12417 -0.0975"
+      rpy="-1.5708 0.0014506 1.5708" />
+    <parent
+      link="backDrivenCabin" />
+    <child
+      link="BU" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="BD">
+    <inertial>
+      <origin
+        xyz="2.67719476303163E-06 -0.00821452737266334 0.00191068038065452"
+        rpy="0 0 0" />
+      <mass
+        value="0.163699075202483" />
+      <inertia
+        ixx="0.000129954159439665"
+        ixy="-1.46424862847746E-08"
+        ixz="-6.27270250577854E-12"
+        iyy="0.000119854046883797"
+        iyz="-1.94024404778699E-08"
+        izz="9.74198043808336E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BD.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://sw2urdfWS2d/meshes/BD.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="BDJ"
+    type="fixed">
+    <origin
+      xyz="0.000999760818310086 -0.124172863010291 0.0975000413038162"
+      rpy="1.57079632679488 -0.00145063128503121 1.5707963267949" />
+    <parent
+      link="backDrivenCabin" />
+    <child
+      link="BD" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>

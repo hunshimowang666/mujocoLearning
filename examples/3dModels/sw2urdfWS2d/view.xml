@@ -1,0 +1,181 @@
+<mujoco model="sw2urdf_ws2d_view">
+  <compiler angle="radian" meshdir="meshes"/>
+  <option timestep="0.002" gravity="0 0 0"/>
+
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+  </visual>
+
+  <default>
+    <joint damping="0.02" armature="0.0001"/>
+    <geom friction="0.8 0.02 0.001"/>
+  </default>
+
+  <asset>
+    <mesh name="backDrivenCabin_mesh" file="backDrivenCabin.STL"/>
+    <mesh name="frontDrivenCabin_mesh" file="frontDrivenCabin.STL"/>
+    <mesh name="headCabin_mesh" file="headCabin.STL"/>
+    <mesh name="FR_mesh" file="FR.STL"/>
+    <mesh name="FL_mesh" file="FL.STL"/>
+    <mesh name="FU_mesh" file="FU.STL"/>
+    <mesh name="FD_mesh" file="FD.STL"/>
+    <mesh name="BR_mesh" file="BR.STL"/>
+    <mesh name="BL_mesh" file="BL.STL"/>
+    <mesh name="BU_mesh" file="BU.STL"/>
+    <mesh name="BD_mesh" file="BD.STL"/>
+    <material name="backDrivenCabin_mat" rgba="0.411764705882353 0.411764705882353 0.411764705882353 1"/>
+    <material name="frontDrivenCabin_mat" rgba="1 1 1 1"/>
+    <material name="headCabin_mat" rgba="0.933333333333333 0.372549019607843 0 1"/>
+    <material name="FR_mat" rgba="1 1 1 1"/>
+    <material name="FL_mat" rgba="1 1 1 1"/>
+    <material name="FU_mat" rgba="1 1 1 1"/>
+    <material name="FD_mat" rgba="1 1 1 1"/>
+    <material name="BR_mat" rgba="1 1 1 1"/>
+    <material name="BL_mat" rgba="1 1 1 1"/>
+    <material name="BU_mat" rgba="1 1 1 1"/>
+    <material name="BD_mat" rgba="1 1 1 1"/>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.18 0.22 0.27" rgb2="0.28 0.34 0.40"/>
+    <material name="grid" texture="grid" texrepeat="8 8" reflectance="0.15"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 -4 3" dir="0 1 -1" diffuse="0.8 0.8 0.8"/>
+    <camera name="view" pos="0.8 -3.0 1.2" xyaxes="0.96 0.28 0 -0.12 0.42 0.90"/>
+    <geom name="floor" type="plane" size="3 3 0.02" material="grid"/>
+    <body name="backDrivenCabin" pos="0 0 0.45">
+      <freejoint/>
+      <inertial pos="-1.58703085886e-07 -0.0462855357368 -0.000838936474934"
+                mass="5.94333504291"
+                fullinertia="0.0506503044463 0.0787556572438 0.060882315016 4.3394112654e-08 -0.000278613283706 -4.43469112914e-06"/>
+      <geom name="backDrivenCabin_visual" type="mesh" mesh="backDrivenCabin_mesh"
+            material="backDrivenCabin_mat" contype="0" conaffinity="0"/>
+      <geom name="backDrivenCabin_collision" type="mesh" mesh="backDrivenCabin_mesh"
+            rgba="0.6 0.6 0.6 0.18"/>
+      <body name="frontDrivenCabin" pos="0 -0.388 0" quat="1 0 0 0">
+        <joint name="J1" type="hinge" axis="0 0 1" limited="false"/>
+        <inertial pos="-1.63127334655e-07 -0.419439622488 0.00195154287583"
+                  mass="6.28907190774"
+                  fullinertia="0.0538005603257 0.0847113379619 0.0639791683968 4.33958813501e-08 -0.000278613283706 -4.25365720591e-06"/>
+        <geom name="frontDrivenCabin_visual" type="mesh" mesh="frontDrivenCabin_mesh"
+              material="frontDrivenCabin_mat" contype="0" conaffinity="0"/>
+        <geom name="frontDrivenCabin_collision" type="mesh" mesh="frontDrivenCabin_mesh"
+              rgba="0.6 0.6 0.6 0.18"/>
+        <body name="headCabin" pos="0 -0.776 0" quat="0.707105482511 0.707108079859 0 0">
+          <joint name="J2" type="hinge" axis="0 1 0" limited="false"/>
+          <inertial pos="2.8267095895e-06 0.00500867328442 0.326719213717"
+                    mass="4.40387857645"
+                    fullinertia="0.057456177876 0.0574181363968 0.0780729338671 1.99081524582e-07 -1.35519957731e-07 1.24168050548e-07"/>
+          <geom name="headCabin_visual" type="mesh" mesh="headCabin_mesh"
+                material="headCabin_mat" contype="0" conaffinity="0"/>
+          <geom name="headCabin_collision" type="mesh" mesh="headCabin_mesh"
+                rgba="0.6 0.6 0.6 0.18"/>
+        </body>
+        <body name="FR" pos="0.19499977134 -0.248658356703 0.00251455813324" quat="-0.49963721069 0.49963721069 -0.500362526269 -0.500362526269">
+        <site name="FR_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="FR_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="FR_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+          <inertial pos="2.67719476335e-06 -0.00821452737266 0.00191068038065"
+                    mass="0.163699075202"
+                    fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862866e-08 -6.27270268619e-12 -1.94024404784e-08"/>
+          <geom name="FR_visual" type="mesh" mesh="FR_mesh"
+                material="FR_mat" contype="0" conaffinity="0"/>
+          <geom name="FR_collision" type="mesh" mesh="FR_mesh"
+                rgba="0.6 0.6 0.6 0.18"/>
+        </body>
+        <body name="FL" pos="-0.195000249703 -0.248658356703 0.00248554551771" quat="0.500362526269 -0.500362526269 -0.49963721069 -0.49963721069">
+        <site name="FL_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="FL_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="FL_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+          <inertial pos="2.67719476338e-06 -0.00821452737266 0.00191068038065"
+                    mass="0.163699075202"
+                    fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862866e-08 -6.2727024971e-12 -1.94024404785e-08"/>
+          <geom name="FL_visual" type="mesh" mesh="FL_mesh"
+                material="FL_mat" contype="0" conaffinity="0"/>
+          <geom name="FL_collision" type="mesh" mesh="FL_mesh"
+                rgba="0.6 0.6 0.6 0.18"/>
+        </body>
+        <body name="FU" pos="-0.00100023918168 -0.51217286301 -0.0949999376529" quat="0.49963721069 -0.500362526269 -0.49963721069 0.500362526269">
+        <site name="FU_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="FU_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="FU_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+          <inertial pos="2.67719476321e-06 -0.00821452737266 0.00191068038065"
+                    mass="0.163699075202"
+                    fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862852e-08 -6.27270220426e-12 -1.94024404776e-08"/>
+          <geom name="FU_visual" type="mesh" mesh="FU_mesh"
+                material="FU_mat" contype="0" conaffinity="0"/>
+          <geom name="FU_collision" type="mesh" mesh="FU_mesh"
+                rgba="0.6 0.6 0.6 0.18"/>
+        </body>
+        <body name="FD" pos="0.000999760818305 -0.51217286301 0.100000041304" quat="0.49963721069 0.500362526269 0.49963721069 0.500362526269">
+        <site name="FD_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="FD_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="FD_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+          <inertial pos="2.67719476299e-06 -0.00821452737266 0.00191068038065"
+                    mass="0.163699075202"
+                    fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862853e-08 -6.27270197162e-12 -1.94024404767e-08"/>
+          <geom name="FD_visual" type="mesh" mesh="FD_mesh"
+                material="FD_mat" contype="0" conaffinity="0"/>
+          <geom name="FD_collision" type="mesh" mesh="FD_mesh"
+                rgba="0.6 0.6 0.6 0.18"/>
+        </body>
+      </body>
+      <body name="BR" pos="0.195 0.13934 1.4506e-05" quat="-0.499628533982 0.499623022801 -0.500376695935 -0.500371187503">
+        <site name="BR_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="BR_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="BR_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+        <inertial pos="2.62536934735e-06 -0.00821452729748 0.00191068038065"
+                  mass="0.163699075202"
+                  fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862867e-08 -6.27270254963e-12 -1.94024404784e-08"/>
+        <geom name="BR_visual" type="mesh" mesh="BR_mesh"
+              material="BR_mat" contype="0" conaffinity="0"/>
+        <geom name="BR_collision" type="mesh" mesh="BR_mesh"
+              rgba="0.6 0.6 0.6 0.18"/>
+      </body>
+      <body name="BL" pos="-0.195 0.13934 -1.4506e-05" quat="0.500373022738 -0.500374860714 -0.499624860784 -0.499626696012">
+        <site name="BL_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="BL_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="BL_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+        <inertial pos="2.72902017836e-06 -0.00821452744784 0.00191068038065"
+                  mass="0.163699075202"
+                  fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862866e-08 -6.27270264119e-12 -1.94024404785e-08"/>
+        <geom name="BL_visual" type="mesh" mesh="BL_mesh"
+              material="BL_mat" contype="0" conaffinity="0"/>
+        <geom name="BL_collision" type="mesh" mesh="BL_mesh"
+              rgba="0.6 0.6 0.6 0.18"/>
+      </body>
+      <body name="BU" pos="-0.0010002 -0.12417 -0.0975" quat="0.499635380583 -0.50036251845 -0.499639056451 0.50036251845">
+        <site name="BU_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="BU_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="BU_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+        <inertial pos="2.67719476318e-06 -0.00821452737266 0.00191068038065"
+                  mass="0.163699075202"
+                  fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862855e-08 -6.27270248052e-12 -1.94024404775e-08"/>
+        <geom name="BU_visual" type="mesh" mesh="BU_mesh"
+              material="BU_mat" contype="0" conaffinity="0"/>
+        <geom name="BU_collision" type="mesh" mesh="BU_mesh"
+              rgba="0.6 0.6 0.6 0.18"/>
+      </body>
+      <body name="BD" pos="0.00099976081831 -0.12417286301 0.0975000413038" quat="0.49963721069 0.500362526269 0.49963721069 0.500362526269">
+        <site name="BD_site" pos="0 0 0" type="sphere" size="0.001" rgba="0 1 1 0"/>
+        <site name="BD_thrust_axis" pos="0 0 -0.12" type="sphere" size="0.025" rgba="1 0 0 1"/>
+        <geom name="BD_thrust_axis_marker" type="capsule" fromto="0 0 0 0 0 -0.12" size="0.012"
+              rgba="1 0 0 1" contype="0" conaffinity="0"/>
+        <inertial pos="2.67719476303e-06 -0.00821452737266 0.00191068038065"
+                  mass="0.163699075202"
+                  fullinertia="0.00012995415944 0.000119854046884 9.74198043808e-05 -1.46424862848e-08 -6.27270250578e-12 -1.94024404779e-08"/>
+        <geom name="BD_visual" type="mesh" mesh="BD_mesh"
+              material="BD_mat" contype="0" conaffinity="0"/>
+        <geom name="BD_collision" type="mesh" mesh="BD_mesh"
+              rgba="0.6 0.6 0.6 0.18"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>
