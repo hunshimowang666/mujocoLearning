@@ -1,6 +1,6 @@
 <mujoco model="sw2urdf_ws2d_view">
   <compiler angle="radian" meshdir="meshes"/>
-  <option timestep="0.002" gravity="0 0 0"/>
+  <option timestep="0.002" gravity="0 0 0" density="1000" viscosity="0.0009" integrator="implicitfast"/>
 
   <visual>
     <global offwidth="1280" offheight="720"/>
@@ -42,7 +42,6 @@
   <worldbody>
     <light pos="0 -4 3" dir="0 1 -1" diffuse="0.8 0.8 0.8"/>
     <camera name="view" pos="0.8 -3.0 1.2" xyaxes="0.96 0.28 0 -0.12 0.42 0.90"/>
-    <geom name="floor" type="plane" size="3 3 0.02" material="grid"/>
     <body name="backDrivenCabin" pos="0 0 0.45">
       <freejoint/>
       <inertial pos="-1.58703085886e-07 -0.0462855357368 -0.000838936474934"
