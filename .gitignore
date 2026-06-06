@@ -7,6 +7,40 @@ __pycache__/
 models/
 logs/
 
+# AI assistant conversations, memories, and local notes
+.codex/
+**/.codex/
+codex/
+**/codex/
+*codex*.md
+*codex*.json
+*Codex*.md
+*Codex*.json
+.workbuddy/
+**/.workbuddy/
+workbuddy/
+**/workbuddy/
+*workbuddy*.*
+*WorkBuddy*.*
+开发日记*.md
+**/开发日记*.md
+*对话*.md
+**/*对话*.md
+*聊天*.md
+**/*聊天*.md
+*conversation*.md
+**/*conversation*.md
+*conversation*.json
+**/*conversation*.json
+*transcript*.md
+**/*transcript*.md
+*transcript*.json
+**/*transcript*.json
+*chat-log*.*
+**/*chat-log*.*
+*chat_history*.*
+**/*chat_history*.*
+
 # Downloaded external SDKs
 examples/third_party/
 
