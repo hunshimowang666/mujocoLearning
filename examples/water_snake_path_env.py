@@ -192,6 +192,7 @@ class WaterSnakePathEnv(gym.Env):
         row_update_interval=0.1,
         frame_skip=10,
         max_thrust=30.0,
+        max_joint_angle=np.deg2rad(60.0),
         max_tracking_error=3.0,
         randomize_initial_pose=False,
     ):
@@ -201,6 +202,7 @@ class WaterSnakePathEnv(gym.Env):
         self.row_update_interval = row_update_interval
         self.frame_skip = frame_skip
         self.max_thrust = max_thrust
+        self.max_joint_angle = max_joint_angle
         self.max_tracking_error = max_tracking_error
         self.randomize_initial_pose = randomize_initial_pose
 
@@ -247,24 +249,23 @@ class WaterSnakePathEnv(gym.Env):
             self.thruster_site_ids.append(site_id)
             self.thruster_axis_site_ids.append(axis_site_id)
 
-        self.pid = JointPID()
         self._rng = np.random.default_rng()
         self._steps = 0
         self._row_index = 0
         self._target = self.path_targets[0]
-        self._last_action = np.zeros(len(THRUSTERS), dtype=np.float32)
+        self._last_action = np.zeros(len(THRUSTERS) + len(JOINT_NAMES), dtype=np.float32)
         self._last_reward_terms = {}
 
         self.action_space = spaces.Box(
             low=-1.0,
             high=1.0,
-            shape=(len(THRUSTERS),),
+            shape=(len(THRUSTERS) + len(JOINT_NAMES),),
             dtype=np.float32,
         )
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(42,),
+            shape=(44,),
             dtype=np.float32,
         )
 
@@ -417,14 +418,11 @@ class WaterSnakePathEnv(gym.Env):
             )
         return forces
 
-    def _apply_joint_pid(self, target, qfrc):
-        q = self.data.qpos[self.joint_qpos_adrs].copy()
-        dq = self.data.qvel[self.joint_dof_adrs].copy()
-        joint_target = self._target_joint_rad(target)
-        error = np.array([wrap_to_pi(joint_target[0] - q[0]), wrap_to_pi(joint_target[1] - q[1])])
-        torque = self.pid.compute(error, dq, self.model.opt.timestep)
-        qfrc[self.joint_dof_adrs] += torque
-        return error, dq, torque
+    def _apply_joint_action(self, joint_action):
+        joint_pos = np.clip(np.asarray(joint_action, dtype=np.float64), -1.0, 1.0) * self.max_joint_angle
+        self.data.qpos[self.joint_qpos_adrs] = joint_pos
+        self.data.qvel[self.joint_dof_adrs] = 0.0
+        return joint_pos
 
     def _reward(self, forces):
         target = self._target
@@ -482,7 +480,6 @@ class WaterSnakePathEnv(gym.Env):
         self._row_index = 0
         self._target = self.path_targets[0]
         self._last_action[:] = 0.0
-        self.pid.reset()
         self._apply_initial_pose(self._target)
         mujoco.mj_forward(self.model, self.data)
         return self._get_obs(), {}
@@ -490,17 +487,17 @@ class WaterSnakePathEnv(gym.Env):
     def step(self, action):
         action = np.clip(np.asarray(action, dtype=np.float32), -1.0, 1.0)
         self._last_action = action.copy()
+        thruster_action = action[: len(THRUSTERS)]
+        joint_action = action[len(THRUSTERS) :]
 
         forces = np.zeros(len(THRUSTERS), dtype=np.float64)
-        joint_error = np.zeros(2, dtype=np.float64)
-        joint_dq = np.zeros(2, dtype=np.float64)
-        joint_torque = np.zeros(2, dtype=np.float64)
+        joint_pos = np.zeros(2, dtype=np.float64)
         for _ in range(self.frame_skip):
             self._target_for_time(min(self.data.time, max(self.path_total_time - 1e-9, 0.0)))
+            joint_pos = self._apply_joint_action(joint_action)
             mujoco.mj_forward(self.model, self.data)
             qfrc = np.zeros(self.model.nv, dtype=np.float64)
-            forces = self._apply_thrusters(action, qfrc)
-            joint_error, joint_dq, joint_torque = self._apply_joint_pid(self._target, qfrc)
+            forces = self._apply_thrusters(thruster_action, qfrc)
             self.data.qfrc_applied[:] = qfrc
             mujoco.mj_step(self.model, self.data)
 
@@ -516,9 +513,7 @@ class WaterSnakePathEnv(gym.Env):
             "file_time": self._target["time"],
             "sim_time": float(self.data.time),
             "forces": forces.copy(),
-            "joint_error_deg": np.rad2deg(joint_error),
-            "joint_dq_deg_s": np.rad2deg(joint_dq),
-            "joint_torque": joint_torque.copy(),
+            "joint_action_deg": np.rad2deg(joint_pos),
             **self._last_reward_terms,
         }
         return obs, reward, terminated, truncated, info

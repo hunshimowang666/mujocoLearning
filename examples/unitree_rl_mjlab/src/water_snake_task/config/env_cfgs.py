@@ -8,6 +8,7 @@ import mujoco
 import numpy as np
 
 from mjlab.actuator.actuator import TransmissionType
+from mjlab.actuator.builtin_actuator import BuiltinPositionActuatorCfg
 from mjlab.actuator.xml_actuator import XmlMotorActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.envs import ManagerBasedRlEnvCfg
@@ -39,6 +40,10 @@ def robot_bodies_cfg() -> SceneEntityCfg:
   return SceneEntityCfg("robot", body_names=list(BODY_NAMES), preserve_order=True)
 
 MAX_THRUST = 30.0
+MAX_JOINT_ANGLE_DEG = 60.0
+JOINT_POSITION_STIFFNESS = 8.0
+JOINT_POSITION_DAMPING = 1.2
+JOINT_POSITION_EFFORT_LIMIT = 20.0
 PATH_ROW_UPDATE_INTERVAL = 0.1
 MAX_TRACKING_ERROR = 3.0
 ROLL_PITCH_PENALTY_WEIGHT = -2.0
@@ -122,15 +127,6 @@ def _get_water_snake_spec(draw_path: bool = False) -> mujoco.MjSpec:
       gear=(0.0, 0.0, -1.0, 0.0, 0.0, 0.0),
       effort_limit=MAX_THRUST,
     )
-  for joint_name in JOINT_NAMES:
-    _add_motor(
-      spec,
-      name=f"{joint_name}_pid_motor",
-      target=joint_name,
-      trntype=mujoco.mjtTrn.mjTRN_JOINT,
-      gear=(1.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-      effort_limit=20.0,
-    )
   if draw_path:
     _add_path_visuals(spec)
   return spec
@@ -144,9 +140,12 @@ def get_water_snake_robot_cfg(draw_path: bool = False) -> EntityCfg:
         target_names_expr=THRUSTER_SITE_NAMES,
         transmission_type=TransmissionType.SITE,
       ),
-      XmlMotorActuatorCfg(
+      BuiltinPositionActuatorCfg(
         target_names_expr=JOINT_NAMES,
         transmission_type=TransmissionType.JOINT,
+        stiffness=JOINT_POSITION_STIFFNESS,
+        damping=JOINT_POSITION_DAMPING,
+        effort_limit=JOINT_POSITION_EFFORT_LIMIT,
       ),
     ),
   )
@@ -204,11 +203,10 @@ def water_snake_path_env_cfg(
   critic_terms = observation_terms()
 
   actions = {
-    "thrusters": mdp.WaterSnakeThrusterPidActionCfg(
+    "thrusters_and_joints": mdp.WaterSnakeThrusterJointAngleActionCfg(
       entity_name="robot",
       max_thrust=MAX_THRUST,
-      path_table=str(PATH_TABLE),
-      row_update_interval=PATH_ROW_UPDATE_INTERVAL,
+      max_joint_angle=np.deg2rad(MAX_JOINT_ANGLE_DEG),
     )
   }
 

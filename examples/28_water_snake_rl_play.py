@@ -97,7 +97,7 @@ def play(cfg: WaterSnakeMjlabPlayConfig) -> None:
   policy = runner.get_inference_policy(device=cfg.device)
 
   print(f"Loaded checkpoint: {checkpoint}")
-  print("Action space: 8 thruster forces; J1/J2 are tracked by PID.")
+  print("Action space: 8 thruster forces + 2 joint angle targets; no joint PID target tracking.")
   print(f"Path drawing: {'enabled' if cfg.draw_path else 'disabled'}")
 
   if cfg.viewer == "native":

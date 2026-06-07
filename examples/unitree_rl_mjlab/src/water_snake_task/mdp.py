@@ -291,34 +291,30 @@ def back_tracking_error_too_large(env: ManagerBasedRlEnv, asset_cfg, limit: floa
 
 
 @dataclass(kw_only=True)
-class WaterSnakeThrusterPidActionCfg(ActionTermCfg):
+class WaterSnakeThrusterJointAngleActionCfg(ActionTermCfg):
   site_names: tuple[str, ...] = THRUSTER_SITE_NAMES
   joint_names: tuple[str, ...] = JOINT_NAMES
   max_thrust: float = 30.0
-  pid_kp: float = 8.0
-  pid_ki: float = 0.05
-  pid_kd: float = 1.2
-  pid_integral_limit: float = 1.5
-  pid_torque_limit: float = 20.0
-  path_table: str = str(DEFAULT_PATH_TABLE)
-  row_update_interval: float = ROW_UPDATE_INTERVAL
+  max_joint_angle: float = float(np.deg2rad(60.0))
 
-  def build(self, env: ManagerBasedRlEnv) -> "WaterSnakeThrusterPidAction":
-    return WaterSnakeThrusterPidAction(self, env)
+  def build(self, env: ManagerBasedRlEnv) -> "WaterSnakeThrusterJointAngleAction":
+    return WaterSnakeThrusterJointAngleAction(self, env)
 
 
-class WaterSnakeThrusterPidAction(ActionTerm):
-  cfg: WaterSnakeThrusterPidActionCfg
+class WaterSnakeThrusterJointAngleAction(ActionTerm):
+  cfg: WaterSnakeThrusterJointAngleActionCfg
 
-  def __init__(self, cfg: WaterSnakeThrusterPidActionCfg, env: ManagerBasedRlEnv):
+  def __init__(self, cfg: WaterSnakeThrusterJointAngleActionCfg, env: ManagerBasedRlEnv):
     super().__init__(cfg, env)
     site_ids, _ = self._entity.find_sites(cfg.site_names, preserve_order=True)
     joint_ids, _ = self._entity.find_joints(cfg.joint_names, preserve_order=True)
     self._site_ids = torch.tensor(site_ids, dtype=torch.long, device=self.device)
     self._joint_ids = torch.tensor(joint_ids, dtype=torch.long, device=self.device)
-    self._raw_actions = torch.zeros(self.num_envs, len(site_ids), device=self.device)
-    self._processed_actions = torch.zeros_like(self._raw_actions)
-    self._pid_integral = torch.zeros(self.num_envs, len(joint_ids), device=self.device)
+    self._num_sites = len(site_ids)
+    self._num_joints = len(joint_ids)
+    self._raw_actions = torch.zeros(self.num_envs, self._num_sites + self._num_joints, device=self.device)
+    self._site_forces = torch.zeros(self.num_envs, self._num_sites, device=self.device)
+    self._joint_targets = torch.zeros(self.num_envs, self._num_joints, device=self.device)
 
   @property
   def action_dim(self) -> int:
@@ -330,27 +326,17 @@ class WaterSnakeThrusterPidAction(ActionTerm):
 
   def process_actions(self, actions: torch.Tensor) -> None:
     self._raw_actions[:] = actions.to(self.device)
-    self._processed_actions[:] = torch.clamp(self._raw_actions, -1.0, 1.0) * self.cfg.max_thrust
+    clipped = torch.clamp(self._raw_actions, -1.0, 1.0)
+    self._site_forces[:] = clipped[:, : self._num_sites] * self.cfg.max_thrust
+    self._joint_targets[:] = clipped[:, self._num_sites :] * self.cfg.max_joint_angle
 
   def apply_actions(self) -> None:
-    self._entity.set_site_effort_target(self._processed_actions, site_ids=self._site_ids)
-    target = target_joint_pos_mj(
-      self._env,
-      path_table=self.cfg.path_table,
-      row_update_interval=self.cfg.row_update_interval,
-    )
-    q = self._entity.data.joint_pos[:, self._joint_ids]
-    dq = self._entity.data.joint_vel[:, self._joint_ids]
-    err = wrap_to_pi(target - q)
-    self._pid_integral += err * self._env.physics_dt
-    self._pid_integral.clamp_(-self.cfg.pid_integral_limit, self.cfg.pid_integral_limit)
-    torque = self.cfg.pid_kp * err + self.cfg.pid_ki * self._pid_integral - self.cfg.pid_kd * dq
-    torque = torch.clamp(torque, -self.cfg.pid_torque_limit, self.cfg.pid_torque_limit)
-    self._entity.set_joint_effort_target(torque, joint_ids=self._joint_ids)
+    self._entity.set_site_effort_target(self._site_forces, site_ids=self._site_ids)
+    self._entity.set_joint_position_target(self._joint_targets, joint_ids=self._joint_ids)
 
   def reset(self, env_ids: torch.Tensor | slice | None = None) -> None:
     if env_ids is None:
       env_ids = slice(None)
-    self._pid_integral[env_ids] = 0.0
     self._raw_actions[env_ids] = 0.0
-    self._processed_actions[env_ids] = 0.0
+    self._site_forces[env_ids] = 0.0
+    self._joint_targets[env_ids] = 0.0
