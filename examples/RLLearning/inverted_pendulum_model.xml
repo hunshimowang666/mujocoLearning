@@ -1,0 +1,39 @@
+<mujoco model="cartpole_inverted_pendulum">
+  <compiler angle="radian" autolimits="true"/>
+
+  <option timestep="0.002" integrator="RK4"/>
+
+  <default>
+    <joint damping="0.05"/>
+    <geom friction="0.8 0.1 0.1"/>
+  </default>
+
+  <asset>
+    <material name="cart_mat" rgba="0.15 0.35 0.85 1"/>
+    <material name="pole_mat" rgba="0.85 0.18 0.12 1"/>
+    <material name="rail_mat" rgba="0.2 0.2 0.2 1"/>
+  </asset>
+
+  <worldbody>
+    <light name="top_light" pos="0 0 3"/>
+    <camera name="fixed" pos="0 -4 1.6" xyaxes="1 0 0 0 0.35 0.94"/>
+
+    <geom name="floor" type="plane" size="3 1 0.05" rgba="0.92 0.92 0.88 1"/>
+    <geom name="rail" type="box" pos="0 0 0.04" size="1.4 0.025 0.025" material="rail_mat" contype="0" conaffinity="0"/>
+
+    <body name="cart" pos="0 0 0.16">
+      <joint name="slider" type="slide" axis="1 0 0" range="-1.2 1.2" damping="0.15"/>
+      <geom name="cart_geom" type="box" size="0.15 0.10 0.06" mass="1.0" material="cart_mat"/>
+
+      <body name="pole" pos="0 0 0.08">
+        <joint name="hinge" type="hinge" axis="0 1 0" damping="0.003" armature="0.001"/>
+        <geom name="pole_geom" type="capsule" fromto="0 0 0 0 0 0.75" size="0.025" mass="0.12" material="pole_mat"/>
+        <geom name="tip_geom" type="sphere" pos="0 0 0.75" size="0.045" mass="0.03" material="pole_mat"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="cart_force" joint="slider" gear="1" ctrllimited="true" ctrlrange="-20 20"/>
+  </actuator>
+</mujoco>
