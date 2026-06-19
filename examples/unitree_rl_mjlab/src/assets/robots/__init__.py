@@ -44,3 +44,10 @@ from .unitree_h2.h2_constants import (
 from .unitree_h2.h2_constants import (
   get_h2_robot_cfg as get_h2_robot_cfg,
 )
+
+from .gym_humanoid_v5.humanoid_v5_constants import (
+  HUMANOID_V5_ACTION_SCALE as HUMANOID_V5_ACTION_SCALE,
+)
+from .gym_humanoid_v5.humanoid_v5_constants import (
+  get_humanoid_v5_robot_cfg as get_humanoid_v5_robot_cfg,
+)
