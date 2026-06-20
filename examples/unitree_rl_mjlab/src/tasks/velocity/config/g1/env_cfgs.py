@@ -9,9 +9,11 @@ from mjlab.envs import mdp as envs_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
+from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg, RayCastSensorCfg
 from mjlab.tasks.velocity import mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
+import src.tasks.velocity.mdp as velocity_mdp
 from src.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 
 
@@ -135,10 +137,62 @@ def unitree_g1_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = ("torso_link",)
   cfg.rewards["foot_clearance"].params["asset_cfg"].site_names = site_names
   cfg.rewards["foot_slip"].params["asset_cfg"].site_names = site_names
+  cfg.rewards["track_linear_velocity"].weight = 3.0
+  cfg.rewards["track_linear_velocity"].params["std"] = 0.30
+  cfg.rewards["track_body_forward_velocity"] = RewardTermCfg(
+    func=velocity_mdp.track_body_forward_velocity,
+    weight=5.0,
+    params={"command_name": "twist", "std": 0.25},
+  )
+  cfg.rewards["track_world_forward_velocity"] = RewardTermCfg(
+    func=velocity_mdp.track_world_forward_velocity,
+    weight=5.0,
+    params={"command_name": "twist", "std": 0.25},
+  )
+  cfg.rewards["track_world_lateral_velocity_zero"] = RewardTermCfg(
+    func=velocity_mdp.track_world_lateral_velocity_zero,
+    weight=2.0,
+    params={"std": 0.18},
+  )
+  cfg.rewards["lateral_position"] = RewardTermCfg(
+    func=velocity_mdp.lateral_position_l2,
+    weight=-8.0,
+  )
+  cfg.rewards["heading_zero"] = RewardTermCfg(
+    func=velocity_mdp.heading_zero_l2,
+    weight=-4.0,
+  )
+  cfg.rewards["track_angular_velocity"].weight = 0.4
+  cfg.rewards["pose"].weight = 0.35
+  cfg.rewards["foot_gait"].weight = 1.2
+  cfg.rewards["foot_clearance"].weight = -0.25
+  cfg.rewards["action_rate_l2"].weight = -0.02
   cfg.rewards["self_collisions"] = RewardTermCfg(
     func=mdp.self_collision_cost,
     weight=-1.0,
     params={"sensor_name": self_collision_cfg.name, "force_threshold": 10.0},
+  )
+  cfg.terminations["insufficient_forward_progress"] = TerminationTermCfg(
+    func=velocity_mdp.insufficient_forward_progress,
+    params={
+      "command_name": "twist",
+      "min_progress_fraction": 0.35,
+      "grace_duration": 4.0,
+    },
+  )
+  cfg.terminations["lateral_deviation"] = TerminationTermCfg(
+    func=velocity_mdp.lateral_position_over_limit,
+    params={
+      "max_lateral_distance": 0.35,
+      "grace_duration": 1.0,
+    },
+  )
+  cfg.terminations["heading_deviation"] = TerminationTermCfg(
+    func=velocity_mdp.heading_over_limit,
+    params={
+      "max_heading_error": 0.4363323129985824,  # 25 degrees.
+      "grace_duration": 1.0,
+    },
   )
 
   # Apply play mode overrides.

@@ -64,6 +64,205 @@ def track_body_forward_velocity(
   return torch.exp(-error / std**2)
 
 
+def track_world_forward_velocity(
+  env: ManagerBasedRlEnv,
+  std: float,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward moving along world +X, so walking diagonally is not enough."""
+  asset: Entity = env.scene[asset_cfg.name]
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  actual_forward = asset.data.root_link_lin_vel_w[:, 0]
+  target_forward = command[:, 0]
+  error = torch.square(target_forward - actual_forward)
+  return torch.exp(-error / std**2)
+
+
+def track_world_lateral_velocity_zero(
+  env: ManagerBasedRlEnv,
+  std: float,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward keeping world-Y velocity near zero while following a straight line."""
+  asset: Entity = env.scene[asset_cfg.name]
+  lateral_velocity = asset.data.root_link_lin_vel_w[:, 1]
+  return torch.exp(-torch.square(lateral_velocity) / std**2)
+
+
+def lateral_position_l2(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Penalize root displacement away from the world-X reference line."""
+  asset: Entity = env.scene[asset_cfg.name]
+  env_origins = getattr(env.scene, "env_origins", None)
+  if env_origins is None:
+    lateral_position = asset.data.root_link_pos_w[:, 1]
+  else:
+    lateral_position = asset.data.root_link_pos_w[:, 1] - env_origins[:, 1]
+  return torch.square(lateral_position)
+
+
+def heading_zero_l2(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Penalize yaw drift away from world +X."""
+  asset: Entity = env.scene[asset_cfg.name]
+  heading = torch.atan2(torch.sin(asset.data.heading_w), torch.cos(asset.data.heading_w))
+  return torch.square(heading)
+
+
+def sine_path_position_tracking(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward staying near the live sine-path reference position."""
+  asset: Entity = env.scene[asset_cfg.name]
+  command_term = env.command_manager.get_term(command_name)
+  reference_pos_w = getattr(command_term, "reference_pos_w", None)
+  if reference_pos_w is None:
+    raise AttributeError(
+      f"Command '{command_name}' does not expose reference_pos_w; "
+      "sine_path_position_tracking requires SineVelocityCommand."
+    )
+  path_error = torch.linalg.norm(
+    asset.data.root_link_pos_w[:, :2] - reference_pos_w,
+    dim=1,
+  )
+  env.extras["log"]["Metrics/sine_path_error_mean"] = torch.mean(path_error)
+  return torch.exp(-torch.square(path_error) / std**2)
+
+
+def sine_path_tangent_velocity_tracking(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward forward speed along the sine path tangent instead of world +X."""
+  asset: Entity = env.scene[asset_cfg.name]
+  command_term = env.command_manager.get_term(command_name)
+  reference_heading_w = getattr(command_term, "reference_heading_w", None)
+  if reference_heading_w is None:
+    raise AttributeError(
+      f"Command '{command_name}' does not expose reference_heading_w; "
+      "sine_path_tangent_velocity_tracking requires SineVelocityCommand."
+    )
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  tangent = torch.stack(
+    (torch.cos(reference_heading_w), torch.sin(reference_heading_w)),
+    dim=1,
+  )
+  actual_tangent_speed = torch.sum(
+    asset.data.root_link_lin_vel_w[:, :2] * tangent,
+    dim=1,
+  )
+  target_tangent_speed = command[:, 0]
+  error = torch.square(target_tangent_speed - actual_tangent_speed)
+  env.extras["log"]["Metrics/sine_tangent_speed_error_mean"] = torch.mean(
+    torch.sqrt(error)
+  )
+  return torch.exp(-error / std**2)
+
+
+def sine_path_heading_tracking(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  std: float,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward torso yaw aligning with the sine path tangent."""
+  asset: Entity = env.scene[asset_cfg.name]
+  command_term = env.command_manager.get_term(command_name)
+  reference_heading_w = getattr(command_term, "reference_heading_w", None)
+  if reference_heading_w is None:
+    raise AttributeError(
+      f"Command '{command_name}' does not expose reference_heading_w; "
+      "sine_path_heading_tracking requires SineVelocityCommand."
+    )
+  heading_error = torch.atan2(
+    torch.sin(reference_heading_w - asset.data.heading_w),
+    torch.cos(reference_heading_w - asset.data.heading_w),
+  )
+  env.extras["log"]["Metrics/sine_heading_error_mean"] = torch.mean(
+    torch.abs(heading_error)
+  )
+  return torch.exp(-torch.square(heading_error) / std**2)
+
+
+def sine_path_position_l2(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Dense penalty for distance from the live sine-path reference position."""
+  asset: Entity = env.scene[asset_cfg.name]
+  command_term = env.command_manager.get_term(command_name)
+  reference_pos_w = getattr(command_term, "reference_pos_w", None)
+  if reference_pos_w is None:
+    raise AttributeError(
+      f"Command '{command_name}' does not expose reference_pos_w; "
+      "sine_path_position_l2 requires SineVelocityCommand."
+    )
+  path_error = asset.data.root_link_pos_w[:, :2] - reference_pos_w
+  return torch.sum(torch.square(path_error), dim=1)
+
+
+def sine_path_heading_l2(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Dense penalty for yaw error from the sine path tangent."""
+  asset: Entity = env.scene[asset_cfg.name]
+  command_term = env.command_manager.get_term(command_name)
+  reference_heading_w = getattr(command_term, "reference_heading_w", None)
+  if reference_heading_w is None:
+    raise AttributeError(
+      f"Command '{command_name}' does not expose reference_heading_w; "
+      "sine_path_heading_l2 requires SineVelocityCommand."
+    )
+  heading_error = torch.atan2(
+    torch.sin(reference_heading_w - asset.data.heading_w),
+    torch.cos(reference_heading_w - asset.data.heading_w),
+  )
+  return torch.square(heading_error)
+
+
+def sine_path_lateral_velocity_l2(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Penalize velocity perpendicular to the sine path tangent."""
+  asset: Entity = env.scene[asset_cfg.name]
+  command_term = env.command_manager.get_term(command_name)
+  reference_heading_w = getattr(command_term, "reference_heading_w", None)
+  if reference_heading_w is None:
+    raise AttributeError(
+      f"Command '{command_name}' does not expose reference_heading_w; "
+      "sine_path_lateral_velocity_l2 requires SineVelocityCommand."
+    )
+  lateral = torch.stack(
+    (-torch.sin(reference_heading_w), torch.cos(reference_heading_w)),
+    dim=1,
+  )
+  lateral_speed = torch.sum(
+    asset.data.root_link_lin_vel_w[:, :2] * lateral,
+    dim=1,
+  )
+  env.extras["log"]["Metrics/sine_lateral_speed_mean"] = torch.mean(
+    torch.abs(lateral_speed)
+  )
+  return torch.square(lateral_speed)
+
+
 def track_angular_velocity(
   env: ManagerBasedRlEnv,
   std: float,

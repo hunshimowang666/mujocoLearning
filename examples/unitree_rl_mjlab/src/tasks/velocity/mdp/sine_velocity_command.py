@@ -33,15 +33,21 @@ class SineVelocityCommand(UniformVelocityCommand):
 
   def _update_command(self) -> None:
     path_time = self._env.episode_length_buf.to(dtype=torch.float32) * self._env.step_dt
+    sine_time = torch.clamp(path_time - self.cfg.warmup_duration, min=0.0)
     phase = (
-      path_time
+      sine_time
       / self.cfg.period
       + self.phase_offset
     )
     self.vel_command_b[:, 0] = self.cfg.lin_vel_x
     self.vel_command_b[:, 1] = self.cfg.lin_vel_y
-    self.vel_command_b[:, 2] = self.cfg.ang_vel_z_amplitude * torch.sin(
+    yaw_rate = self.cfg.ang_vel_z_amplitude * torch.sin(
       2.0 * torch.pi * phase
+    )
+    self.vel_command_b[:, 2] = torch.where(
+      path_time >= self.cfg.warmup_duration,
+      yaw_rate,
+      torch.zeros_like(yaw_rate),
     )
     self.is_standing_env[:] = False
     self.is_heading_env[:] = False
@@ -64,6 +70,7 @@ class SineVelocityCommandCfg(UniformVelocityCommandCfg):
   lin_vel_y: float = 0.0
   ang_vel_z_amplitude: float = 0.6
   period: float = 10.0
+  warmup_duration: float = 0.0
   randomize_phase: bool = True
 
   def build(self, env: ManagerBasedRlEnv) -> SineVelocityCommand:

@@ -149,8 +149,11 @@ class PlayConfig:
   sine_lin_vel_y: float = 0.0
   sine_ang_vel_z_amplitude: float = 0.35
   sine_period: float = 10.0
+  sine_warmup_duration: float = 0.0
   show_sine_path: bool = True
   sine_path_duration: float = 20.0
+  sine_max_path_error: float | None = 1.0
+  sine_path_error_grace_duration: float = 2.0
   sine_path_points: int = 160
   sine_path_z: float = 0.035
   show_straight_path: bool = True
@@ -379,15 +382,22 @@ def apply_sine_twist_command(env: ManagerBasedRlEnv, cfg: PlayConfig):
 
   def set_command(env_ids=None):
     if env_ids is None:
+      path_time = env.episode_length_buf.to(dtype=torch.float32) * env.step_dt
+      sine_time = torch.clamp(path_time - cfg.sine_warmup_duration, min=0.0)
       phase = (
-        env.episode_length_buf.to(dtype=torch.float32) * env.step_dt
+        sine_time
         / cfg.sine_period
         + phase_offset
       )
       term.vel_command_b[:, 0] = cfg.sine_lin_vel_x
       term.vel_command_b[:, 1] = cfg.sine_lin_vel_y
-      term.vel_command_b[:, 2] = cfg.sine_ang_vel_z_amplitude * torch.sin(
+      yaw_rate = cfg.sine_ang_vel_z_amplitude * torch.sin(
         2.0 * torch.pi * phase
+      )
+      term.vel_command_b[:, 2] = torch.where(
+        path_time >= cfg.sine_warmup_duration,
+        yaw_rate,
+        torch.zeros_like(yaw_rate),
       )
       dt = env.step_dt
       term.reference_heading_w += term.vel_command_b[:, 2] * dt
@@ -443,7 +453,12 @@ def make_sine_path_points(cfg: PlayConfig) -> np.ndarray:
   dt = cfg.sine_path_duration / (cfg.sine_path_points - 1)
   for i in range(1, cfg.sine_path_points):
     t = (i - 1) * dt
-    yaw_rate = cfg.sine_ang_vel_z_amplitude * np.sin(2.0 * np.pi * t / cfg.sine_period)
+    sine_t = max(0.0, t - cfg.sine_warmup_duration)
+    yaw_rate = (
+      cfg.sine_ang_vel_z_amplitude * np.sin(2.0 * np.pi * sine_t / cfg.sine_period)
+      if t >= cfg.sine_warmup_duration
+      else 0.0
+    )
     heading += yaw_rate * dt
     c = np.cos(heading)
     s = np.sin(heading)
@@ -660,15 +675,31 @@ def configure_sine_terminations(env_cfg, cfg: PlayConfig) -> None:
 
   import src.tasks.velocity.mdp as velocity_mdp
 
+  for termination_name in (
+    "lateral_deviation",
+    "heading_deviation",
+    "insufficient_forward_progress",
+  ):
+    env_cfg.terminations.pop(termination_name, None)
   env_cfg.episode_length_s = cfg.sine_path_duration
   env_cfg.terminations["sine_path_complete"] = TerminationTermCfg(
     func=velocity_mdp.sine_path_complete,
     time_out=True,
     params={"duration": cfg.sine_path_duration},
   )
+  if cfg.sine_max_path_error is not None:
+    env_cfg.terminations["sine_path_deviation"] = TerminationTermCfg(
+      func=velocity_mdp.sine_path_deviation_over_limit,
+      params={
+        "command_name": "twist",
+        "max_path_error": cfg.sine_max_path_error,
+        "grace_duration": cfg.sine_path_error_grace_duration,
+      },
+    )
   print(
     "[INFO] Sine play terminations enabled: "
-    f"duration={cfg.sine_path_duration}s"
+    f"duration={cfg.sine_path_duration}s, "
+    f"max_path_error={cfg.sine_max_path_error}"
   )
 
 

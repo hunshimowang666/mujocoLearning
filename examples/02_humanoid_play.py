@@ -1,8 +1,8 @@
 """02_humanoid_play.py
 =====================
-Play the Gymnasium Humanoid-v5 MJLab policy trained by 01_humanoid_train.py.
+Play the Gymnasium Humanoid-v5 sine-path MJLab policy trained by
+01_humanoid_train.py.
 """
-
 from __future__ import annotations
 
 import importlib.util
@@ -61,11 +61,15 @@ def direct_play_config() -> PlayConfig:
     viewer=DIRECT_PLAY_VIEWER,
     render_frame_rate=DIRECT_RENDER_FRAME_RATE,
     target_steps_per_second=DIRECT_TARGET_STEPS_PER_SECOND,
-    constant_lin_vel_x=TRAIN_CFG.DIRECT_LIN_VEL_X,
-    constant_lin_vel_y=TRAIN_CFG.DIRECT_LIN_VEL_Y,
-    constant_ang_vel_z=TRAIN_CFG.DIRECT_ANG_VEL_Z,
-    show_straight_path=True,
-    straight_path_duration=TRAIN_CFG.DIRECT_EPISODE_LENGTH,
+    sine_lin_vel_x=TRAIN_CFG.DIRECT_LIN_VEL_X,
+    sine_lin_vel_y=TRAIN_CFG.DIRECT_LIN_VEL_Y,
+    sine_ang_vel_z_amplitude=TRAIN_CFG.DIRECT_ANG_VEL_Z_AMPLITUDE,
+    sine_period=TRAIN_CFG.DIRECT_PERIOD,
+    sine_warmup_duration=TRAIN_CFG.DIRECT_SINE_WARMUP_DURATION,
+    show_sine_path=True,
+    sine_path_duration=TRAIN_CFG.DIRECT_PATH_DURATION,
+    sine_max_path_error=TRAIN_CFG.DIRECT_MAX_PATH_ERROR,
+    sine_path_error_grace_duration=TRAIN_CFG.DIRECT_PATH_ERROR_GRACE_DURATION,
     no_terminations=False,
   )
 
@@ -78,7 +82,7 @@ def main() -> None:
 
   os.chdir(MJLAB_ROOT)
   cfg = direct_play_config()
-  print("[INFO] Running 02_humanoid_play.py with Humanoid-v5 MJLab settings")
+  print("[INFO] Running 02_humanoid_play.py with Humanoid-v5 sine-path MJLab settings")
   run_play(DIRECT_PLAY_TASK, cfg)
 
 
