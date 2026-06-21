@@ -1,4 +1,4 @@
-"""Train Unitree G1 to walk along a sine curve with MJLab GPU-parallel PPO.
+"""Train Unitree G1 velocity locomotion with MJLab GPU-parallel PPO.
 
 Edit the direct-run settings below, then run this file directly from the IDE.
 """
@@ -50,13 +50,8 @@ MJLAB_SCRIPT_DIR = MJLAB_ROOT / "scripts"
 sys.path.insert(0, str(MJLAB_SCRIPT_DIR))
 sys.path.insert(0, str(MJLAB_ROOT))
 
-from mjlab.managers.reward_manager import RewardTermCfg  # noqa: E402
-from mjlab.managers.termination_manager import TerminationTermCfg  # noqa: E402
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg  # noqa: E402
 from train import TrainConfig, launch_training  # noqa: E402
-
-import src.tasks.velocity.mdp as velocity_mdp  # noqa: E402
-from src.tasks.velocity.mdp.sine_velocity_command import SineVelocityCommandCfg  # noqa: E402
 
 
 ##
@@ -65,28 +60,33 @@ from src.tasks.velocity.mdp.sine_velocity_command import SineVelocityCommandCfg 
 
 # Use "Unitree-G1-23Dof-Flat" here if you explicitly want the 23-DOF variant.
 DIRECT_TASK = "Unitree-G1-Flat"
-DIRECT_EXPERIMENT_NAME = "g1_humanoid_velocity_mjlab_sine_v1"
+DIRECT_EXPERIMENT_NAME = "g1_velocity_gait_mjlab_v1"
 
-# Body-frame command. Positive x is the robot's forward direction.
-DIRECT_LIN_VEL_X = 1.0
-DIRECT_LIN_VEL_Y = 0.0
-DIRECT_ANG_VEL_Z_AMPLITUDE = 0.08
-DIRECT_PERIOD = 16.0
-DIRECT_SINE_WARMUP_DURATION = 2.0
-DIRECT_RANDOMIZE_PHASE = False
+# Random body-frame velocity command ranges. Positive x is robot forward.
+DIRECT_LIN_VEL_X_RANGE = (0.2, 0.8)
+DIRECT_LIN_VEL_Y_RANGE = (-0.15, 0.15)
+DIRECT_ANG_VEL_Z_RANGE = (-0.30, 0.30)
+DIRECT_COMMAND_RESAMPLING_TIME_RANGE = (4.0, 8.0)
 
-DIRECT_PATH_DURATION = 12.0
-DIRECT_MAX_PATH_ERROR = 0.8
-DIRECT_PATH_ERROR_GRACE_DURATION = 2.0
+# Playback command used by 04_unitree_g1_walk_play.py.
+DIRECT_PLAY_LIN_VEL_X = 0.5
+DIRECT_PLAY_LIN_VEL_Y = 0.0
+DIRECT_PLAY_ANG_VEL_Z = 0.0
+
+DIRECT_EPISODE_LENGTH = 20.0
 DIRECT_NUM_ENVS = 2048
-DIRECT_MAX_ITERATIONS = 10000
+DIRECT_MAX_ITERATIONS = 15000
 DIRECT_GPU_IDS: list[int] | Literal["all"] | None = [0]
 
 # True: continue from the newest checkpoint if one exists. False: start fresh.
-DIRECT_RESUME_LATEST = False
+DIRECT_RESUME_LATEST = True
 
 # Used only for fresh runs. Resume never deletes old networks.
 DIRECT_DELETE_OLD_NETWORKS = True
+
+GAIT_PERIOD = 0.8
+GAIT_OFFSET = [0.0, 0.5]
+GAIT_STANCE_THRESHOLD = 0.55
 
 
 def configure_runtime_environment() -> None:
@@ -124,15 +124,13 @@ def find_latest_checkpoint(experiment_name: str) -> Path:
 class UnitreeG1WalkTrainConfig:
   task: str = DIRECT_TASK
   experiment_name: str = DIRECT_EXPERIMENT_NAME
-  lin_vel_x: float = DIRECT_LIN_VEL_X
-  lin_vel_y: float = DIRECT_LIN_VEL_Y
-  ang_vel_z_amplitude: float = DIRECT_ANG_VEL_Z_AMPLITUDE
-  period: float = DIRECT_PERIOD
-  sine_warmup_duration: float = DIRECT_SINE_WARMUP_DURATION
-  randomize_phase: bool = DIRECT_RANDOMIZE_PHASE
-  path_duration: float = DIRECT_PATH_DURATION
-  max_path_error: float | None = DIRECT_MAX_PATH_ERROR
-  path_error_grace_duration: float = DIRECT_PATH_ERROR_GRACE_DURATION
+  lin_vel_x_range: tuple[float, float] = DIRECT_LIN_VEL_X_RANGE
+  lin_vel_y_range: tuple[float, float] = DIRECT_LIN_VEL_Y_RANGE
+  ang_vel_z_range: tuple[float, float] = DIRECT_ANG_VEL_Z_RANGE
+  command_resampling_time_range: tuple[float, float] = (
+    DIRECT_COMMAND_RESAMPLING_TIME_RANGE
+  )
+  episode_length: float = DIRECT_EPISODE_LENGTH
   num_envs: int | None = DIRECT_NUM_ENVS
   max_iterations: int | None = DIRECT_MAX_ITERATIONS
   gpu_ids: list[int] | Literal["all"] | None = field(
@@ -148,122 +146,93 @@ def direct_train_config() -> UnitreeG1WalkTrainConfig:
   return UnitreeG1WalkTrainConfig()
 
 
-def _configure_sine_command(
+def _configure_velocity_command(
   cfg: TrainConfig,
   args: UnitreeG1WalkTrainConfig,
 ) -> None:
-  cfg.env.commands["twist"] = SineVelocityCommandCfg(
+  cfg.env.commands["twist"] = UniformVelocityCommandCfg(
     entity_name="robot",
     ranges=UniformVelocityCommandCfg.Ranges(
-      lin_vel_x=(args.lin_vel_x, args.lin_vel_x),
-      lin_vel_y=(args.lin_vel_y, args.lin_vel_y),
-      ang_vel_z=(-args.ang_vel_z_amplitude, args.ang_vel_z_amplitude),
+      lin_vel_x=args.lin_vel_x_range,
+      lin_vel_y=args.lin_vel_y_range,
+      ang_vel_z=args.ang_vel_z_range,
       heading=None,
     ),
     heading_command=False,
     rel_standing_envs=0.0,
     rel_heading_envs=0.0,
-    resampling_time_range=(1.0e9, 1.0e9),
-    lin_vel_x=args.lin_vel_x,
-    lin_vel_y=args.lin_vel_y,
-    ang_vel_z_amplitude=args.ang_vel_z_amplitude,
-    period=args.period,
-    warmup_duration=args.sine_warmup_duration,
-    randomize_phase=args.randomize_phase,
+    resampling_time_range=args.command_resampling_time_range,
   )
 
 
 def build_train_config(args: UnitreeG1WalkTrainConfig) -> TrainConfig:
   cfg = TrainConfig.from_task(args.task)
-  _configure_sine_command(cfg, args)
+  _configure_velocity_command(cfg, args)
 
   cfg.env.curriculum = {}
   cfg.env.events.pop("push_robot", None)
+  for observation_group in ("actor", "critic"):
+    group = cfg.env.observations.get(observation_group)
+    if group is None:
+      continue
+    phase_term = group.terms.get("phase")
+    if phase_term is not None:
+      phase_term.params["period"] = GAIT_PERIOD
   for reward_name in (
     "track_world_forward_velocity",
     "track_world_lateral_velocity_zero",
     "lateral_position",
     "heading_zero",
+    "sine_path_position",
+    "sine_path_position_l2",
+    "sine_path_tangent_velocity",
+    "sine_path_heading",
+    "sine_path_heading_l2",
+    "sine_path_lateral_velocity_l2",
   ):
     cfg.env.rewards.pop(reward_name, None)
   if "track_linear_velocity" in cfg.env.rewards:
     cfg.env.rewards["track_linear_velocity"].weight = 1.0
     cfg.env.rewards["track_linear_velocity"].params["std"] = 0.50
   if "track_body_forward_velocity" in cfg.env.rewards:
-    cfg.env.rewards["track_body_forward_velocity"].weight = 0.5
-    cfg.env.rewards["track_body_forward_velocity"].params["std"] = 0.50
+    cfg.env.rewards["track_body_forward_velocity"].weight = 2.0
+    cfg.env.rewards["track_body_forward_velocity"].params["std"] = 0.35
   if "track_angular_velocity" in cfg.env.rewards:
     cfg.env.rewards["track_angular_velocity"].weight = 0.5
     cfg.env.rewards["track_angular_velocity"].params["std"] = 0.50
-  cfg.env.rewards["sine_path_position"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_position_tracking,
-    weight=3.0,
-    params={"command_name": "twist", "std": 0.60},
-  )
-  cfg.env.rewards["sine_path_position_l2"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_position_l2,
-    weight=-1.0,
-    params={"command_name": "twist"},
-  )
-  cfg.env.rewards["sine_path_tangent_velocity"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_tangent_velocity_tracking,
-    weight=2.0,
-    params={"command_name": "twist", "std": 0.50},
-  )
-  cfg.env.rewards["sine_path_heading"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_heading_tracking,
-    weight=1.0,
-    params={"command_name": "twist", "std": 0.50},
-  )
-  cfg.env.rewards["sine_path_heading_l2"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_heading_l2,
-    weight=-0.5,
-    params={"command_name": "twist"},
-  )
-  cfg.env.rewards["sine_path_lateral_velocity_l2"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_lateral_velocity_l2,
-    weight=-0.5,
-    params={"command_name": "twist"},
-  )
   if "body_orientation_l2" in cfg.env.rewards:
-    cfg.env.rewards["body_orientation_l2"].weight = -5.0
+    cfg.env.rewards["body_orientation_l2"].weight = -1.0
   if "pose" in cfg.env.rewards:
     cfg.env.rewards["pose"].weight = 0.35
   if "foot_gait" in cfg.env.rewards:
-    cfg.env.rewards["foot_gait"].weight = 0.5
+    cfg.env.rewards["foot_gait"].weight = 1.5
+    cfg.env.rewards["foot_gait"].params["period"] = GAIT_PERIOD
+    cfg.env.rewards["foot_gait"].params["offset"] = GAIT_OFFSET
+    cfg.env.rewards["foot_gait"].params["threshold"] = GAIT_STANCE_THRESHOLD
+    cfg.env.rewards["foot_gait"].params["command_threshold"] = 0.05
+  if "foot_clearance" in cfg.env.rewards:
+    cfg.env.rewards["foot_clearance"].weight = -0.50
+    cfg.env.rewards["foot_clearance"].params["target_height"] = 0.08
+    cfg.env.rewards["foot_clearance"].params["command_threshold"] = 0.05
   if "action_rate_l2" in cfg.env.rewards:
-    cfg.env.rewards["action_rate_l2"].weight = -0.05
+    cfg.env.rewards["action_rate_l2"].weight = -0.01
   if "foot_slip" in cfg.env.rewards:
-    cfg.env.rewards["foot_slip"].weight = -0.2
+    cfg.env.rewards["foot_slip"].weight = -0.20
+    cfg.env.rewards["foot_slip"].params["command_threshold"] = 0.05
+  if "body_ang_vel" in cfg.env.rewards:
+    cfg.env.rewards["body_ang_vel"].weight = -0.05
+  if "angular_momentum" in cfg.env.rewards:
+    cfg.env.rewards["angular_momentum"].weight = -0.025
   for termination_name in (
     "lateral_deviation",
     "heading_deviation",
     "insufficient_forward_progress",
+    "sine_path_complete",
+    "sine_path_deviation",
   ):
     cfg.env.terminations.pop(termination_name, None)
-  reset_base = cfg.env.events.get("reset_base")
-  if reset_base is not None:
-    pose_range = reset_base.params.get("pose_range")
-    if pose_range is not None:
-      pose_range["x"] = (0.0, 0.0)
-      pose_range["y"] = (0.0, 0.0)
-      pose_range["yaw"] = (0.0, 0.0)
 
-  cfg.env.episode_length_s = args.path_duration
-  cfg.env.terminations["sine_path_complete"] = TerminationTermCfg(
-    func=velocity_mdp.sine_path_complete,
-    time_out=True,
-    params={"duration": args.path_duration},
-  )
-  if args.max_path_error is not None:
-    cfg.env.terminations["sine_path_deviation"] = TerminationTermCfg(
-      func=velocity_mdp.sine_path_deviation_over_limit,
-      params={
-        "command_name": "twist",
-        "max_path_error": args.max_path_error,
-        "grace_duration": args.path_error_grace_duration,
-      },
-    )
+  cfg.env.episode_length_s = args.episode_length
 
   cfg.agent.experiment_name = args.experiment_name
   if args.max_iterations is not None:
@@ -297,10 +266,11 @@ def build_train_config(args: UnitreeG1WalkTrainConfig) -> TrainConfig:
       f"run={cfg.agent.load_run}, checkpoint={cfg.agent.load_checkpoint}"
     )
   print(
-    "[INFO] G1 sine-path training: "
-    f"lin_vel_x={args.lin_vel_x}, "
-    f"ang_vel_z_amplitude={args.ang_vel_z_amplitude}, "
-    f"period={args.period}, curriculum=off, push_robot=off"
+    "[INFO] G1 velocity-gait training: "
+    f"lin_vel_x_range={args.lin_vel_x_range}, "
+    f"lin_vel_y_range={args.lin_vel_y_range}, "
+    f"ang_vel_z_range={args.ang_vel_z_range}, "
+    f"gait_period={GAIT_PERIOD}, curriculum=off, push_robot=off"
   )
 
   return replace(
