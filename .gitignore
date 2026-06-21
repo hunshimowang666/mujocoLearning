@@ -1,7 +1,16 @@
 # Python
 venv/
+.venv*/
 __pycache__/
 *.pyc
+
+# CAD generated outputs
+cad/**/*.step
+cad/**/*.stp
+cad/**/*.stl
+cad/**/*.3mf
+cad/**/*.glb
+cad/snapshots/
 
 # Training outputs
 models/
