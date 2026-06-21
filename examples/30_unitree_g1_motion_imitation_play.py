@@ -91,7 +91,9 @@ DIRECT_RENDER_FRAME_RATE = 10.0
 DIRECT_TARGET_STEPS_PER_SECOND: float | None = 10.0
 
 DIRECT_HIDE_MOTION_REFERENCE = False
-DIRECT_NO_TERMINATIONS = False
+# Keep the clip playing even if the current policy falls behind the reference.
+# Set False when you want strict failure/reset evaluation.
+DIRECT_NO_TERMINATIONS = True
 
 
 def configure_runtime_environment() -> None:

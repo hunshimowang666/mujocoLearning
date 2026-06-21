@@ -131,7 +131,7 @@ def find_latest_checkpoint(experiment_name: str) -> Path:
   log_root = MJLAB_ROOT / "logs" / "rsl_rl" / experiment_name
   checkpoints = sorted(
     log_root.glob("*/model_*.pt"),
-    key=lambda path: (path.parent.name, _checkpoint_step(path)),
+    key=lambda path: (_checkpoint_step(path), path.parent.name),
   )
   if not checkpoints:
     raise FileNotFoundError(f"No checkpoints found under {log_root}")
