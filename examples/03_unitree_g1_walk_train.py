@@ -6,6 +6,7 @@ Edit the direct-run settings below, then run this file directly from the IDE.
 from __future__ import annotations
 
 import os
+import site
 import sys
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -14,6 +15,34 @@ from typing import Literal
 import tyro
 
 
+def configure_process_start_environment() -> None:
+  env_changed = False
+
+  if os.environ.get("PYTHONNOUSERSITE") != "1":
+    os.environ["PYTHONNOUSERSITE"] = "1"
+    env_changed = True
+
+  wsl_lib = "/usr/lib/wsl/lib"
+  if Path(wsl_lib).exists():
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+    ld_paths = [path for path in ld_library_path.split(":") if path]
+    if wsl_lib not in ld_paths:
+      os.environ["LD_LIBRARY_PATH"] = (
+        wsl_lib if not ld_library_path else f"{wsl_lib}:{ld_library_path}"
+      )
+      env_changed = True
+
+  if env_changed and os.environ.get("MJLAB_WSL_ENV_READY") != "1":
+    os.environ["MJLAB_WSL_ENV_READY"] = "1"
+    os.execv(sys.executable, [sys.executable, *sys.argv])
+
+
+configure_process_start_environment()
+
+USER_SITE = site.getusersitepackages()
+if USER_SITE in sys.path:
+  sys.path.remove(USER_SITE)
+
 EXAMPLES_DIR = Path(__file__).resolve().parent
 MJLAB_ROOT = EXAMPLES_DIR / "unitree_rl_mjlab"
 MJLAB_SCRIPT_DIR = MJLAB_ROOT / "scripts"
@@ -21,6 +50,7 @@ MJLAB_SCRIPT_DIR = MJLAB_ROOT / "scripts"
 sys.path.insert(0, str(MJLAB_SCRIPT_DIR))
 sys.path.insert(0, str(MJLAB_ROOT))
 
+from mjlab.managers.reward_manager import RewardTermCfg  # noqa: E402
 from mjlab.managers.termination_manager import TerminationTermCfg  # noqa: E402
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg  # noqa: E402
 from train import TrainConfig, launch_training  # noqa: E402
@@ -38,7 +68,7 @@ DIRECT_TASK = "Unitree-G1-Flat"
 DIRECT_EXPERIMENT_NAME = "g1_humanoid_velocity_mjlab_sine_v1"
 
 # Body-frame command. Positive x is the robot's forward direction.
-DIRECT_LIN_VEL_X = 0.6
+DIRECT_LIN_VEL_X = 1.0
 DIRECT_LIN_VEL_Y = 0.0
 DIRECT_ANG_VEL_Z_AMPLITUDE = 0.08
 DIRECT_PERIOD = 16.0
@@ -46,21 +76,21 @@ DIRECT_SINE_WARMUP_DURATION = 2.0
 DIRECT_RANDOMIZE_PHASE = False
 
 DIRECT_PATH_DURATION = 12.0
-DIRECT_MAX_PATH_ERROR = 2.0
-DIRECT_PATH_ERROR_GRACE_DURATION = 5.0
+DIRECT_MAX_PATH_ERROR = 0.8
+DIRECT_PATH_ERROR_GRACE_DURATION = 2.0
 DIRECT_NUM_ENVS = 2048
 DIRECT_MAX_ITERATIONS = 10000
 DIRECT_GPU_IDS: list[int] | Literal["all"] | None = [0]
 
 # True: continue from the newest checkpoint if one exists. False: start fresh.
-DIRECT_RESUME_LATEST = True
+DIRECT_RESUME_LATEST = False
 
 # Used only for fresh runs. Resume never deletes old networks.
 DIRECT_DELETE_OLD_NETWORKS = True
 
 
 def configure_runtime_environment() -> None:
-  os.environ.pop("PYTHONNOUSERSITE", None)
+  os.environ.setdefault("PYTHONNOUSERSITE", "1")
   os.environ.setdefault("WANDB_MODE", "disabled")
   os.environ.setdefault("MUJOCO_GL", "egl")
   wsl_lib = "/usr/lib/wsl/lib"
@@ -154,29 +184,57 @@ def build_train_config(args: UnitreeG1WalkTrainConfig) -> TrainConfig:
     "track_world_lateral_velocity_zero",
     "lateral_position",
     "heading_zero",
-    "sine_path_position",
-    "sine_path_position_l2",
-    "sine_path_tangent_velocity",
-    "sine_path_heading",
-    "sine_path_heading_l2",
-    "sine_path_lateral_velocity_l2",
   ):
     cfg.env.rewards.pop(reward_name, None)
   if "track_linear_velocity" in cfg.env.rewards:
-    cfg.env.rewards["track_linear_velocity"].weight = 2.0
-    cfg.env.rewards["track_linear_velocity"].params["std"] = 0.35
+    cfg.env.rewards["track_linear_velocity"].weight = 1.0
+    cfg.env.rewards["track_linear_velocity"].params["std"] = 0.50
   if "track_body_forward_velocity" in cfg.env.rewards:
-    cfg.env.rewards["track_body_forward_velocity"].weight = 7.0
-    cfg.env.rewards["track_body_forward_velocity"].params["std"] = 0.30
+    cfg.env.rewards["track_body_forward_velocity"].weight = 0.5
+    cfg.env.rewards["track_body_forward_velocity"].params["std"] = 0.50
   if "track_angular_velocity" in cfg.env.rewards:
-    cfg.env.rewards["track_angular_velocity"].weight = 1.8
-    cfg.env.rewards["track_angular_velocity"].params["std"] = 0.45
+    cfg.env.rewards["track_angular_velocity"].weight = 0.5
+    cfg.env.rewards["track_angular_velocity"].params["std"] = 0.50
+  cfg.env.rewards["sine_path_position"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_position_tracking,
+    weight=3.0,
+    params={"command_name": "twist", "std": 0.60},
+  )
+  cfg.env.rewards["sine_path_position_l2"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_position_l2,
+    weight=-1.0,
+    params={"command_name": "twist"},
+  )
+  cfg.env.rewards["sine_path_tangent_velocity"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_tangent_velocity_tracking,
+    weight=2.0,
+    params={"command_name": "twist", "std": 0.50},
+  )
+  cfg.env.rewards["sine_path_heading"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_heading_tracking,
+    weight=1.0,
+    params={"command_name": "twist", "std": 0.50},
+  )
+  cfg.env.rewards["sine_path_heading_l2"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_heading_l2,
+    weight=-0.5,
+    params={"command_name": "twist"},
+  )
+  cfg.env.rewards["sine_path_lateral_velocity_l2"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_lateral_velocity_l2,
+    weight=-0.5,
+    params={"command_name": "twist"},
+  )
   if "body_orientation_l2" in cfg.env.rewards:
-    cfg.env.rewards["body_orientation_l2"].weight = -1.5
+    cfg.env.rewards["body_orientation_l2"].weight = -5.0
   if "pose" in cfg.env.rewards:
-    cfg.env.rewards["pose"].weight = 0.5
+    cfg.env.rewards["pose"].weight = 0.35
   if "foot_gait" in cfg.env.rewards:
-    cfg.env.rewards["foot_gait"].weight = 1.5
+    cfg.env.rewards["foot_gait"].weight = 0.5
+  if "action_rate_l2" in cfg.env.rewards:
+    cfg.env.rewards["action_rate_l2"].weight = -0.05
+  if "foot_slip" in cfg.env.rewards:
+    cfg.env.rewards["foot_slip"].weight = -0.2
   for termination_name in (
     "lateral_deviation",
     "heading_deviation",

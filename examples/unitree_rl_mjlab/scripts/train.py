@@ -4,15 +4,46 @@ import logging
 import contextlib
 import io
 import os
+import site
 import shutil
 import sys
 import statistics
+import types
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, cast
 
 import tyro
+
+
+def configure_process_start_environment() -> None:
+  env_changed = False
+
+  if os.environ.get("PYTHONNOUSERSITE") != "1":
+    os.environ["PYTHONNOUSERSITE"] = "1"
+    env_changed = True
+
+  wsl_lib = "/usr/lib/wsl/lib"
+  if Path(wsl_lib).exists():
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+    ld_paths = [path for path in ld_library_path.split(":") if path]
+    if wsl_lib not in ld_paths:
+      os.environ["LD_LIBRARY_PATH"] = (
+        wsl_lib if not ld_library_path else f"{wsl_lib}:{ld_library_path}"
+      )
+      env_changed = True
+
+  if env_changed and os.environ.get("MJLAB_WSL_ENV_READY") != "1":
+    os.environ["MJLAB_WSL_ENV_READY"] = "1"
+    os.execv(sys.executable, [sys.executable, *sys.argv])
+
+
+configure_process_start_environment()
+
+USER_SITE = site.getusersitepackages()
+if USER_SITE in sys.path:
+  sys.path.remove(USER_SITE)
 
 from mjlab.envs import ManagerBasedRlEnv, ManagerBasedRlEnvCfg
 from mjlab.rl import MjlabOnPolicyRunner, RslRlBaseRunnerCfg, RslRlVecEnvWrapper
@@ -22,6 +53,36 @@ from mjlab.utils.gpu import select_gpus
 from mjlab.utils.os import dump_yaml, get_checkpoint_path
 from mjlab.utils.torch import configure_torch_backends
 from mjlab.utils.wrappers import VideoRecorder
+
+
+def select_requested_gpus(
+  gpu_ids: list[int] | Literal["all"] | None,
+) -> tuple[list[int] | None, int]:
+  """Select GPUs and report a clear error when CUDA PyTorch is missing."""
+  try:
+    return select_gpus(gpu_ids)
+  except IndexError as exc:
+    import torch
+
+    if gpu_ids is None or torch.cuda.device_count() > 0:
+      raise
+    raise RuntimeError(
+      "GPU training was requested, but PyTorch sees no CUDA devices. "
+      "Install a CUDA-enabled PyTorch build in this conda environment. "
+      f"torch={torch.__version__}, torch_path={torch.__file__}"
+    ) from exc
+
+
+def patch_warp_driver_context() -> None:
+  """Bridge Warp 1.13's driver API to the older field expected by MJLab."""
+  import warp as wp
+
+  wp.init()
+  if hasattr(wp, "context") or not hasattr(wp, "get_cuda_driver_version"):
+    return
+  wp.context = types.SimpleNamespace(
+    runtime=types.SimpleNamespace(driver_version=wp.get_cuda_driver_version())
+  )
 
 
 @dataclass(frozen=True)
@@ -113,6 +174,7 @@ def run_train(task_id: str, cfg: TrainConfig, log_dir: Path) -> None:
     seed = cfg.agent.seed + local_rank
 
   configure_torch_backends()
+  patch_warp_driver_context()
 
   cfg.agent.seed = seed
   cfg.env.seed = seed
@@ -256,7 +318,7 @@ def launch_training(task_id: str, args: TrainConfig | None = None):
   log_dir = log_root_path / log_dir_name
 
   # Select GPUs based on CUDA_VISIBLE_DEVICES and user specification.
-  selected_gpus, num_gpus = select_gpus(args.gpu_ids)
+  selected_gpus, num_gpus = select_requested_gpus(args.gpu_ids)
 
   # Set environment variables for all modes.
   if selected_gpus is None:

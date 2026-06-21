@@ -11,6 +11,7 @@ terrain.  Run this file directly from VS Code.
 from __future__ import annotations
 
 import os
+import site
 import sys
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -19,12 +20,41 @@ from typing import Literal
 import tyro
 
 
+def configure_process_start_environment() -> None:
+  env_changed = False
+
+  if os.environ.get("PYTHONNOUSERSITE") != "1":
+    os.environ["PYTHONNOUSERSITE"] = "1"
+    env_changed = True
+
+  wsl_lib = "/usr/lib/wsl/lib"
+  if Path(wsl_lib).exists():
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+    ld_paths = [path for path in ld_library_path.split(":") if path]
+    if wsl_lib not in ld_paths:
+      os.environ["LD_LIBRARY_PATH"] = (
+        wsl_lib if not ld_library_path else f"{wsl_lib}:{ld_library_path}"
+      )
+      env_changed = True
+
+  if env_changed and os.environ.get("MJLAB_WSL_ENV_READY") != "1":
+    os.environ["MJLAB_WSL_ENV_READY"] = "1"
+    os.execv(sys.executable, [sys.executable, *sys.argv])
+
+
+configure_process_start_environment()
+
+USER_SITE = site.getusersitepackages()
+if USER_SITE in sys.path:
+  sys.path.remove(USER_SITE)
+
 EXAMPLES_DIR = Path(__file__).resolve().parent
 MJLAB_ROOT = EXAMPLES_DIR / "unitree_rl_mjlab"
 MJLAB_SCRIPT_DIR = MJLAB_ROOT / "scripts"
 sys.path.insert(0, str(MJLAB_SCRIPT_DIR))
 sys.path.insert(0, str(MJLAB_ROOT))
 
+from mjlab.managers.reward_manager import RewardTermCfg  # noqa: E402
 from mjlab.managers.termination_manager import TerminationTermCfg  # noqa: E402
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg  # noqa: E402
 from train import TrainConfig, launch_training  # noqa: E402
@@ -38,20 +68,20 @@ from src.tasks.velocity.mdp.sine_velocity_command import SineVelocityCommandCfg 
 ##
 
 DIRECT_TASK = "Gym-HumanoidV5-Flat"
-DIRECT_EXPERIMENT_NAME = "humanoid_v5_mjlab_sine_v1"
+DIRECT_EXPERIMENT_NAME = "humanoid_v5_mjlab_sine_v2"
 
-DIRECT_LIN_VEL_X = 0.6
+DIRECT_LIN_VEL_X = 1.0
 DIRECT_LIN_VEL_Y = 0.0
 DIRECT_ANG_VEL_Z_AMPLITUDE = 0.08
 DIRECT_PERIOD = 16.0
 DIRECT_SINE_WARMUP_DURATION = 2.0
 DIRECT_RANDOMIZE_PHASE = False
 DIRECT_PATH_DURATION = 12.0
-DIRECT_MAX_PATH_ERROR = 2.0
-DIRECT_PATH_ERROR_GRACE_DURATION = 5.0
+DIRECT_MAX_PATH_ERROR = 1.0
+DIRECT_PATH_ERROR_GRACE_DURATION = 2.0
 
 DIRECT_NUM_ENVS = 4096
-DIRECT_MAX_ITERATIONS = 3000
+DIRECT_MAX_ITERATIONS = 10000
 DIRECT_GPU_IDS: list[int] | Literal["all"] | None = [0]
 
 # False: start a fresh run. True: continue from the newest checkpoint.
@@ -62,7 +92,7 @@ DIRECT_DELETE_OLD_NETWORKS = True
 
 
 def configure_runtime_environment() -> None:
-  os.environ.pop("PYTHONNOUSERSITE", None)
+  os.environ.setdefault("PYTHONNOUSERSITE", "1")
   os.environ.setdefault("WANDB_MODE", "disabled")
   os.environ.setdefault("MUJOCO_GL", "egl")
   wsl_lib = "/usr/lib/wsl/lib"
@@ -165,22 +195,68 @@ def build_train_config(args: HumanoidV5MjlabTrainConfig) -> TrainConfig:
   ):
     cfg.env.rewards.pop(reward_name, None)
   if "track_forward_velocity" in cfg.env.rewards:
-    cfg.env.rewards["track_forward_velocity"].weight = 2.0
-    cfg.env.rewards["track_forward_velocity"].params["std"] = 0.35
+    cfg.env.rewards["track_forward_velocity"].weight = 1.0
+    cfg.env.rewards["track_forward_velocity"].params["std"] = 0.50
   if "track_yaw_velocity" in cfg.env.rewards:
-    cfg.env.rewards["track_yaw_velocity"].weight = 1.2
-    cfg.env.rewards["track_yaw_velocity"].params["std"] = 0.45
+    cfg.env.rewards["track_yaw_velocity"].weight = 0.5
+    cfg.env.rewards["track_yaw_velocity"].params["std"] = 0.50
   if "track_lateral_velocity_zero" in cfg.env.rewards:
-    cfg.env.rewards["track_lateral_velocity_zero"].weight = 0.6
-    cfg.env.rewards["track_lateral_velocity_zero"].params["std"] = 0.28
+    cfg.env.rewards["track_lateral_velocity_zero"].weight = 0.4
+    cfg.env.rewards["track_lateral_velocity_zero"].params["std"] = 0.35
+  cfg.env.rewards["sine_path_position"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_position_tracking,
+    weight=3.0,
+    params={"command_name": "twist", "std": 0.70},
+  )
+  cfg.env.rewards["sine_path_position_l2"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_position_l2,
+    weight=-0.8,
+    params={"command_name": "twist"},
+  )
+  cfg.env.rewards["sine_path_tangent_velocity"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_tangent_velocity_tracking,
+    weight=2.0,
+    params={"command_name": "twist", "std": 0.55},
+  )
+  cfg.env.rewards["sine_path_heading"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_heading_tracking,
+    weight=1.0,
+    params={"command_name": "twist", "std": 0.55},
+  )
+  cfg.env.rewards["sine_path_heading_l2"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_heading_l2,
+    weight=-0.4,
+    params={"command_name": "twist"},
+  )
+  cfg.env.rewards["sine_path_lateral_velocity_l2"] = RewardTermCfg(
+    func=velocity_mdp.sine_path_lateral_velocity_l2,
+    weight=-0.4,
+    params={"command_name": "twist"},
+  )
   if "alternating_foot_placement" in cfg.env.rewards:
-    cfg.env.rewards["alternating_foot_placement"].weight = 2.0
+    cfg.env.rewards["alternating_foot_placement"].weight = 1.8
   if "foot_fore_aft_separation" in cfg.env.rewards:
-    cfg.env.rewards["foot_fore_aft_separation"].weight = 1.0
+    cfg.env.rewards["foot_fore_aft_separation"].weight = 0.8
   if "alternating_foot_velocity" in cfg.env.rewards:
-    cfg.env.rewards["alternating_foot_velocity"].weight = 0.8
+    cfg.env.rewards["alternating_foot_velocity"].weight = 0.7
   if "swing_foot_clearance" in cfg.env.rewards:
-    cfg.env.rewards["swing_foot_clearance"].weight = 0.7
+    cfg.env.rewards["swing_foot_clearance"].weight = 0.6
+  if "foot_lateral_width" in cfg.env.rewards:
+    cfg.env.rewards["foot_lateral_width"].weight = 0.5
+  if "leg_motion_imbalance" in cfg.env.rewards:
+    cfg.env.rewards["leg_motion_imbalance"].weight = -0.45
+  if "alive" in cfg.env.rewards:
+    cfg.env.rewards["alive"].weight = 5.0
+  if "upright" in cfg.env.rewards:
+    cfg.env.rewards["upright"].weight = -8.0
+  if "height" in cfg.env.rewards:
+    cfg.env.rewards["height"].weight = -14.0
+  if "deep_knee_bend" in cfg.env.rewards:
+    cfg.env.rewards["deep_knee_bend"].weight = -3.0
+  if "control" in cfg.env.rewards:
+    cfg.env.rewards["control"].weight = -0.025
+  if "action_rate" in cfg.env.rewards:
+    cfg.env.rewards["action_rate"].weight = -0.01
   for termination_name in (
     "heading_deviation",
     "lateral_deviation",

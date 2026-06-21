@@ -1,15 +1,21 @@
 """Script to play RL agent with RSL-RL."""
 
 import os
+import site
 import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
+import types
 
 import numpy as np
 import torch
 import tyro
+
+USER_SITE = site.getusersitepackages()
+if USER_SITE in sys.path:
+  sys.path.remove(USER_SITE)
 
 import mjlab
 from mjlab.envs import ManagerBasedRlEnv
@@ -21,6 +27,18 @@ from mjlab.utils.os import get_wandb_checkpoint_path
 from mjlab.utils.torch import configure_torch_backends
 from mjlab.utils.wrappers import VideoRecorder
 from mjlab.viewer import NativeMujocoViewer, ViserPlayViewer
+
+
+def patch_warp_driver_context() -> None:
+  """Bridge Warp 1.13's driver API to the older field expected by MJLab."""
+  import warp as wp
+
+  wp.init()
+  if hasattr(wp, "context") or not hasattr(wp, "get_cuda_driver_version"):
+    return
+  wp.context = types.SimpleNamespace(
+    runtime=types.SimpleNamespace(driver_version=wp.get_cuda_driver_version())
+  )
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -756,6 +774,7 @@ def apply_viewer_step_rate(viewer, env, cfg: PlayConfig) -> None:
 
 def run_play(task_id: str, cfg: PlayConfig):
   configure_torch_backends()
+  patch_warp_driver_context()
 
   device = cfg.device or ("cuda:0" if torch.cuda.is_available() else "cpu")
 

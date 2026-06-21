@@ -4,10 +4,39 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import site
 import sys
 from pathlib import Path
 from typing import Literal
 
+
+def configure_process_start_environment() -> None:
+  env_changed = False
+
+  if os.environ.get("PYTHONNOUSERSITE") != "1":
+    os.environ["PYTHONNOUSERSITE"] = "1"
+    env_changed = True
+
+  wsl_lib = "/usr/lib/wsl/lib"
+  if Path(wsl_lib).exists():
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+    ld_paths = [path for path in ld_library_path.split(":") if path]
+    if wsl_lib not in ld_paths:
+      os.environ["LD_LIBRARY_PATH"] = (
+        wsl_lib if not ld_library_path else f"{wsl_lib}:{ld_library_path}"
+      )
+      env_changed = True
+
+  if env_changed and os.environ.get("MJLAB_WSL_ENV_READY") != "1":
+    os.environ["MJLAB_WSL_ENV_READY"] = "1"
+    os.execv(sys.executable, [sys.executable, *sys.argv])
+
+
+configure_process_start_environment()
+
+USER_SITE = site.getusersitepackages()
+if USER_SITE in sys.path:
+  sys.path.remove(USER_SITE)
 
 EXAMPLES_DIR = Path(__file__).resolve().parent
 TRAIN_SCRIPT = EXAMPLES_DIR / "03_unitree_g1_walk_train.py"
