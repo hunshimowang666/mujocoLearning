@@ -60,6 +60,24 @@ def _leg_joints() -> SceneEntityCfg:
   )
 
 
+def _upper_body_joints() -> SceneEntityCfg:
+  return SceneEntityCfg(
+    "robot",
+    joint_names=(
+      "abdomen_y",
+      "abdomen_z",
+      "abdomen_x",
+      "right_shoulder1",
+      "right_shoulder2",
+      "right_elbow",
+      "left_shoulder1",
+      "left_shoulder2",
+      "left_elbow",
+    ),
+    preserve_order=True,
+  )
+
+
 def _knee_joints() -> SceneEntityCfg:
   return SceneEntityCfg(
     "robot",
@@ -263,6 +281,26 @@ def humanoid_v5_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "command_name": "twist",
         "command_threshold": 0.1,
       },
+    ),
+    "reference_gait": RewardTermCfg(
+      func=mdp.reference_gait_joint_tracking,
+      weight=3.0,
+      params={
+        "period": 0.85,
+        "hip_swing": 0.28,
+        "hip_offset": -0.12,
+        "knee_stance": -0.16,
+        "knee_swing": 0.38,
+        "std": 0.28,
+        "command_name": "twist",
+        "command_threshold": 0.1,
+        "leg_joint_cfg": _leg_joints(),
+      },
+    ),
+    "upper_body_pose": RewardTermCfg(
+      func=mdp.joint_position_l2,
+      weight=-0.35,
+      params={"joint_cfg": _upper_body_joints()},
     ),
     "alive": RewardTermCfg(func=envs_mdp.is_alive, weight=1.0),
     "upright": RewardTermCfg(func=mdp.upright_l2, weight=-8.0),

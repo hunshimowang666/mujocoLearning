@@ -291,6 +291,66 @@ def bilateral_leg_motion_imbalance(
   return imbalance * _command_active(env, command_name, command_threshold)
 
 
+def reference_gait_joint_tracking(
+  env: ManagerBasedRlEnv,
+  period: float,
+  hip_swing: float,
+  hip_offset: float,
+  knee_stance: float,
+  knee_swing: float,
+  std: float,
+  command_name: str,
+  command_threshold: float,
+  leg_joint_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+  """Reward a simple alternating walk cycle for the two hips and knees.
+
+  Humanoid-v5 has no built-in walking controller. This term gives PPO a
+  recognizable walking prior: one hip swings forward while the other swings
+  backward, and the swing-leg knee bends more.
+  """
+  asset: Entity = env.scene[leg_joint_cfg.name]
+  phase = 2.0 * torch.pi * (
+    env.episode_length_buf.to(torch.float32) * env.step_dt / period
+  )
+  sin_phase = torch.sin(phase)
+  right_swing = torch.clamp(sin_phase, min=0.0)
+  left_swing = torch.clamp(-sin_phase, min=0.0)
+
+  right_hip_y = hip_offset - hip_swing * sin_phase
+  left_hip_y = hip_offset + hip_swing * sin_phase
+  right_knee = knee_stance - knee_swing * right_swing
+  left_knee = knee_stance - knee_swing * left_swing
+
+  zeros = torch.zeros_like(sin_phase)
+  target = torch.stack(
+    (
+      zeros,
+      zeros,
+      right_hip_y,
+      right_knee,
+      zeros,
+      zeros,
+      left_hip_y,
+      left_knee,
+    ),
+    dim=1,
+  )
+  joint_pos = asset.data.joint_pos[:, leg_joint_cfg.joint_ids]
+  error = torch.mean(torch.square(joint_pos - target), dim=1)
+  reward = torch.exp(-error / std**2)
+  return reward * _command_active(env, command_name, command_threshold)
+
+
+def joint_position_l2(
+  env: ManagerBasedRlEnv,
+  joint_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+  """Penalize selected joints drifting away from the neutral zero pose."""
+  asset: Entity = env.scene[joint_cfg.name]
+  return torch.mean(torch.square(asset.data.joint_pos[:, joint_cfg.joint_ids]), dim=1)
+
+
 def root_height_target_l2(
   env: ManagerBasedRlEnv,
   target_height: float,

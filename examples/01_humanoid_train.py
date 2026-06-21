@@ -1,7 +1,7 @@
 """01_humanoid_train.py
 ======================
-Train the Gymnasium Humanoid-v5 model on a sine path with MJLab/Warp
-GPU-parallel physics.
+Train the Gymnasium Humanoid-v5 model to walk forward with MJLab/Warp
+GPU-parallel physics and a clock-based gait prior.
 
 The MJCF body/joint/motor model is copied from Gymnasium's Humanoid-v5 asset.
 Only the XML world floor/light are removed so MJLab can provide the multi-env
@@ -54,13 +54,8 @@ MJLAB_SCRIPT_DIR = MJLAB_ROOT / "scripts"
 sys.path.insert(0, str(MJLAB_SCRIPT_DIR))
 sys.path.insert(0, str(MJLAB_ROOT))
 
-from mjlab.managers.reward_manager import RewardTermCfg  # noqa: E402
-from mjlab.managers.termination_manager import TerminationTermCfg  # noqa: E402
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg  # noqa: E402
 from train import TrainConfig, launch_training  # noqa: E402
-
-import src.tasks.velocity.mdp as velocity_mdp  # noqa: E402
-from src.tasks.velocity.mdp.sine_velocity_command import SineVelocityCommandCfg  # noqa: E402
 
 
 ##
@@ -68,24 +63,19 @@ from src.tasks.velocity.mdp.sine_velocity_command import SineVelocityCommandCfg 
 ##
 
 DIRECT_TASK = "Gym-HumanoidV5-Flat"
-DIRECT_EXPERIMENT_NAME = "humanoid_v5_mjlab_sine_v2"
+DIRECT_EXPERIMENT_NAME = "humanoid_v5_mjlab_cpg_walk_v1"
 
-DIRECT_LIN_VEL_X = 1.0
+DIRECT_LIN_VEL_X = 0.6
 DIRECT_LIN_VEL_Y = 0.0
-DIRECT_ANG_VEL_Z_AMPLITUDE = 0.08
-DIRECT_PERIOD = 16.0
-DIRECT_SINE_WARMUP_DURATION = 2.0
-DIRECT_RANDOMIZE_PHASE = False
-DIRECT_PATH_DURATION = 12.0
-DIRECT_MAX_PATH_ERROR = 1.0
-DIRECT_PATH_ERROR_GRACE_DURATION = 2.0
+DIRECT_ANG_VEL_Z = 0.0
+DIRECT_EPISODE_LENGTH = 20.0
 
 DIRECT_NUM_ENVS = 4096
 DIRECT_MAX_ITERATIONS = 10000
 DIRECT_GPU_IDS: list[int] | Literal["all"] | None = [0]
 
 # False: start a fresh run. True: continue from the newest checkpoint.
-DIRECT_RESUME_LATEST = False
+DIRECT_RESUME_LATEST = True
 
 # Used only for fresh runs. Resume never deletes old networks.
 DIRECT_DELETE_OLD_NETWORKS = True
@@ -120,13 +110,8 @@ class HumanoidV5MjlabTrainConfig:
   task: str = DIRECT_TASK
   lin_vel_x: float = DIRECT_LIN_VEL_X
   lin_vel_y: float = DIRECT_LIN_VEL_Y
-  ang_vel_z_amplitude: float = DIRECT_ANG_VEL_Z_AMPLITUDE
-  period: float = DIRECT_PERIOD
-  sine_warmup_duration: float = DIRECT_SINE_WARMUP_DURATION
-  randomize_phase: bool = DIRECT_RANDOMIZE_PHASE
-  path_duration: float = DIRECT_PATH_DURATION
-  max_path_error: float | None = DIRECT_MAX_PATH_ERROR
-  path_error_grace_duration: float = DIRECT_PATH_ERROR_GRACE_DURATION
+  ang_vel_z: float = DIRECT_ANG_VEL_Z
+  episode_length: float = DIRECT_EPISODE_LENGTH
   num_envs: int | None = DIRECT_NUM_ENVS
   max_iterations: int | None = DIRECT_MAX_ITERATIONS
   gpu_ids: list[int] | Literal["all"] | None = field(default_factory=lambda: [0])
@@ -141,13 +126,8 @@ def direct_train_config() -> HumanoidV5MjlabTrainConfig:
     task=DIRECT_TASK,
     lin_vel_x=DIRECT_LIN_VEL_X,
     lin_vel_y=DIRECT_LIN_VEL_Y,
-    ang_vel_z_amplitude=DIRECT_ANG_VEL_Z_AMPLITUDE,
-    period=DIRECT_PERIOD,
-    sine_warmup_duration=DIRECT_SINE_WARMUP_DURATION,
-    randomize_phase=DIRECT_RANDOMIZE_PHASE,
-    path_duration=DIRECT_PATH_DURATION,
-    max_path_error=DIRECT_MAX_PATH_ERROR,
-    path_error_grace_duration=DIRECT_PATH_ERROR_GRACE_DURATION,
+    ang_vel_z=DIRECT_ANG_VEL_Z,
+    episode_length=DIRECT_EPISODE_LENGTH,
     num_envs=DIRECT_NUM_ENVS,
     max_iterations=DIRECT_MAX_ITERATIONS,
     gpu_ids=DIRECT_GPU_IDS,
@@ -159,25 +139,16 @@ def direct_train_config() -> HumanoidV5MjlabTrainConfig:
 def build_train_config(args: HumanoidV5MjlabTrainConfig) -> TrainConfig:
   cfg = TrainConfig.from_task(args.task)
 
-  cfg.env.commands["twist"] = SineVelocityCommandCfg(
-    entity_name="robot",
-    ranges=UniformVelocityCommandCfg.Ranges(
-      lin_vel_x=(args.lin_vel_x, args.lin_vel_x),
-      lin_vel_y=(args.lin_vel_y, args.lin_vel_y),
-      ang_vel_z=(-args.ang_vel_z_amplitude, args.ang_vel_z_amplitude),
-      heading=None,
-    ),
-    heading_command=False,
-    rel_standing_envs=0.0,
-    rel_heading_envs=0.0,
-    resampling_time_range=(1.0e9, 1.0e9),
-    lin_vel_x=args.lin_vel_x,
-    lin_vel_y=args.lin_vel_y,
-    ang_vel_z_amplitude=args.ang_vel_z_amplitude,
-    period=args.period,
-    warmup_duration=args.sine_warmup_duration,
-    randomize_phase=args.randomize_phase,
-  )
+  twist_cmd = cfg.env.commands["twist"]
+  assert isinstance(twist_cmd.ranges, UniformVelocityCommandCfg.Ranges)
+  twist_cmd.ranges.lin_vel_x = (args.lin_vel_x, args.lin_vel_x)
+  twist_cmd.ranges.lin_vel_y = (args.lin_vel_y, args.lin_vel_y)
+  twist_cmd.ranges.ang_vel_z = (args.ang_vel_z, args.ang_vel_z)
+  twist_cmd.ranges.heading = None
+  twist_cmd.heading_command = False
+  twist_cmd.rel_standing_envs = 0.0
+  twist_cmd.rel_heading_envs = 0.0
+  twist_cmd.resampling_time_range = (1.0e9, 1.0e9)
 
   cfg.env.curriculum = {}
   cfg.env.events.pop("push_robot", None)
@@ -195,64 +166,44 @@ def build_train_config(args: HumanoidV5MjlabTrainConfig) -> TrainConfig:
   ):
     cfg.env.rewards.pop(reward_name, None)
   if "track_forward_velocity" in cfg.env.rewards:
-    cfg.env.rewards["track_forward_velocity"].weight = 1.0
-    cfg.env.rewards["track_forward_velocity"].params["std"] = 0.50
+    cfg.env.rewards["track_forward_velocity"].weight = 1.5
+    cfg.env.rewards["track_forward_velocity"].params["std"] = 0.45
   if "track_yaw_velocity" in cfg.env.rewards:
     cfg.env.rewards["track_yaw_velocity"].weight = 0.5
     cfg.env.rewards["track_yaw_velocity"].params["std"] = 0.50
   if "track_lateral_velocity_zero" in cfg.env.rewards:
     cfg.env.rewards["track_lateral_velocity_zero"].weight = 0.4
     cfg.env.rewards["track_lateral_velocity_zero"].params["std"] = 0.35
-  cfg.env.rewards["sine_path_position"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_position_tracking,
-    weight=3.0,
-    params={"command_name": "twist", "std": 0.70},
-  )
-  cfg.env.rewards["sine_path_position_l2"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_position_l2,
-    weight=-0.8,
-    params={"command_name": "twist"},
-  )
-  cfg.env.rewards["sine_path_tangent_velocity"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_tangent_velocity_tracking,
-    weight=2.0,
-    params={"command_name": "twist", "std": 0.55},
-  )
-  cfg.env.rewards["sine_path_heading"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_heading_tracking,
-    weight=1.0,
-    params={"command_name": "twist", "std": 0.55},
-  )
-  cfg.env.rewards["sine_path_heading_l2"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_heading_l2,
-    weight=-0.4,
-    params={"command_name": "twist"},
-  )
-  cfg.env.rewards["sine_path_lateral_velocity_l2"] = RewardTermCfg(
-    func=velocity_mdp.sine_path_lateral_velocity_l2,
-    weight=-0.4,
-    params={"command_name": "twist"},
-  )
   if "alternating_foot_placement" in cfg.env.rewards:
-    cfg.env.rewards["alternating_foot_placement"].weight = 1.8
+    cfg.env.rewards["alternating_foot_placement"].weight = 2.5
   if "foot_fore_aft_separation" in cfg.env.rewards:
-    cfg.env.rewards["foot_fore_aft_separation"].weight = 0.8
+    cfg.env.rewards["foot_fore_aft_separation"].weight = 1.2
   if "alternating_foot_velocity" in cfg.env.rewards:
-    cfg.env.rewards["alternating_foot_velocity"].weight = 0.7
+    cfg.env.rewards["alternating_foot_velocity"].weight = 1.0
   if "swing_foot_clearance" in cfg.env.rewards:
-    cfg.env.rewards["swing_foot_clearance"].weight = 0.6
+    cfg.env.rewards["swing_foot_clearance"].weight = 0.9
   if "foot_lateral_width" in cfg.env.rewards:
-    cfg.env.rewards["foot_lateral_width"].weight = 0.5
+    cfg.env.rewards["foot_lateral_width"].weight = 0.8
   if "leg_motion_imbalance" in cfg.env.rewards:
-    cfg.env.rewards["leg_motion_imbalance"].weight = -0.45
+    cfg.env.rewards["leg_motion_imbalance"].weight = -0.8
+  if "reference_gait" in cfg.env.rewards:
+    cfg.env.rewards["reference_gait"].weight = 6.0
+    cfg.env.rewards["reference_gait"].params["period"] = 0.85
+    cfg.env.rewards["reference_gait"].params["hip_swing"] = 0.28
+    cfg.env.rewards["reference_gait"].params["hip_offset"] = -0.12
+    cfg.env.rewards["reference_gait"].params["knee_stance"] = -0.16
+    cfg.env.rewards["reference_gait"].params["knee_swing"] = 0.38
+    cfg.env.rewards["reference_gait"].params["std"] = 0.28
+  if "upper_body_pose" in cfg.env.rewards:
+    cfg.env.rewards["upper_body_pose"].weight = -0.8
   if "alive" in cfg.env.rewards:
-    cfg.env.rewards["alive"].weight = 5.0
+    cfg.env.rewards["alive"].weight = 2.0
   if "upright" in cfg.env.rewards:
-    cfg.env.rewards["upright"].weight = -8.0
+    cfg.env.rewards["upright"].weight = -10.0
   if "height" in cfg.env.rewards:
-    cfg.env.rewards["height"].weight = -14.0
+    cfg.env.rewards["height"].weight = -16.0
   if "deep_knee_bend" in cfg.env.rewards:
-    cfg.env.rewards["deep_knee_bend"].weight = -3.0
+    cfg.env.rewards["deep_knee_bend"].weight = -4.0
   if "control" in cfg.env.rewards:
     cfg.env.rewards["control"].weight = -0.025
   if "action_rate" in cfg.env.rewards:
@@ -272,21 +223,7 @@ def build_train_config(args: HumanoidV5MjlabTrainConfig) -> TrainConfig:
       pose_range["y"] = (0.0, 0.0)
       pose_range["yaw"] = (0.0, 0.0)
 
-  cfg.env.episode_length_s = args.path_duration
-  cfg.env.terminations["sine_path_complete"] = TerminationTermCfg(
-    func=velocity_mdp.sine_path_complete,
-    time_out=True,
-    params={"duration": args.path_duration},
-  )
-  if args.max_path_error is not None:
-    cfg.env.terminations["sine_path_deviation"] = TerminationTermCfg(
-      func=velocity_mdp.sine_path_deviation_over_limit,
-      params={
-        "command_name": "twist",
-        "max_path_error": args.max_path_error,
-        "grace_duration": args.path_error_grace_duration,
-      },
-    )
+  cfg.env.episode_length_s = args.episode_length
   cfg.agent.experiment_name = DIRECT_EXPERIMENT_NAME
 
   if args.max_iterations is not None:
@@ -320,10 +257,9 @@ def build_train_config(args: HumanoidV5MjlabTrainConfig) -> TrainConfig:
       )
 
   print(
-    "[INFO] Humanoid-v5 MJLab sine command: "
+    "[INFO] Humanoid-v5 MJLab gait-walk command: "
     f"lin_vel_x={args.lin_vel_x}, lin_vel_y={args.lin_vel_y}, "
-    f"ang_vel_z_amplitude={args.ang_vel_z_amplitude}, "
-    f"period={args.period}, warmup={args.sine_warmup_duration}, "
+    f"ang_vel_z={args.ang_vel_z}, "
     f"num_envs={args.num_envs}"
   )
 
