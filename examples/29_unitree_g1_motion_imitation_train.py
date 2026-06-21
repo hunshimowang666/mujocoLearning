@@ -24,6 +24,15 @@ def configure_process_start_environment() -> None:
     os.environ["PYTHONNOUSERSITE"] = "1"
     env_changed = True
 
+  for key, value in (
+    ("WANDB_MODE", "disabled"),
+    ("MUJOCO_GL", "egl"),
+    ("PYOPENGL_PLATFORM", "egl"),
+  ):
+    if os.environ.get(key) != value:
+      os.environ[key] = value
+      env_changed = True
+
   wsl_lib = "/usr/lib/wsl/lib"
   if Path(wsl_lib).exists():
     ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
@@ -101,6 +110,7 @@ def configure_runtime_environment() -> None:
   os.environ.setdefault("PYTHONNOUSERSITE", "1")
   os.environ.setdefault("WANDB_MODE", "disabled")
   os.environ.setdefault("MUJOCO_GL", "egl")
+  os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
   wsl_lib = "/usr/lib/wsl/lib"
   if Path(wsl_lib).exists():
     ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
